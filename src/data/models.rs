@@ -118,19 +118,16 @@ impl Task {
 
         let entry = json.get("entry")
             .and_then(|v| v.as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&Utc))
+            .and_then(|s| Self::parse_taskwarrior_date(s))
             .unwrap_or_else(Utc::now);
 
         let due = json.get("due")
             .and_then(|v| v.as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&Utc));
+            .and_then(|s| Self::parse_taskwarrior_date(s));
 
         let modified = json.get("modified")
             .and_then(|v| v.as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&Utc));
+            .and_then(|s| Self::parse_taskwarrior_date(s));
 
         let tags = json.get("tags")
             .and_then(|v| v.as_array())
@@ -189,6 +186,31 @@ impl Task {
     pub fn is_blocked(&self) -> bool {
         !self.depends.is_empty()
     }
+
+    fn parse_taskwarrior_date(date_str: &str) -> Option<DateTime<Utc>> {
+        parse_taskwarrior_datetime(date_str)
+    }
+}
+
+fn parse_taskwarrior_datetime(date_str: &str) -> Option<DateTime<Utc>> {
+    // Taskwarrior uses format: 20251007T192937Z
+    // We need to convert to: 2025-10-07T19:29:37Z for parsing
+    if date_str.len() == 16 && date_str.ends_with('Z') {
+        let formatted = format!(
+            "{}-{}-{}T{}:{}:{}Z",
+            &date_str[0..4],   // YYYY
+            &date_str[4..6],   // MM
+            &date_str[6..8],   // DD
+            &date_str[9..11],  // HH (skip T at index 8)
+            &date_str[11..13], // MM
+            &date_str[13..15]  // SS (skip Z at index 15)
+        );
+        DateTime::parse_from_rfc3339(&formatted)
+            .ok()
+            .map(|dt| dt.with_timezone(&Utc))
+    } else {
+        None
+    }
 }
 
 impl TaskStatus {
@@ -245,8 +267,7 @@ impl Annotation {
     pub fn from_json(json: &Value) -> Result<Self> {
         let entry = json.get("entry")
             .and_then(|v| v.as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&Utc))
+            .and_then(|s| parse_taskwarrior_datetime(s))
             .ok_or_else(|| anyhow::anyhow!("Annotation entry time is required"))?;
 
         let description = json.get("description")

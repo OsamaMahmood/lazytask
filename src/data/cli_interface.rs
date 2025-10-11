@@ -48,7 +48,9 @@ impl TaskwarriorCLI {
         // Parse the task ID from output like "Created task 42."
         let id_str = output
             .split_whitespace()
-            .find(|word| word.chars().all(|c| c.is_ascii_digit()))
+            .find(|word| word.ends_with('.') && word[..word.len()-1].chars().all(|c| c.is_ascii_digit()))
+            .map(|word| &word[..word.len()-1])  // Remove the trailing dot
+            .or_else(|| output.split_whitespace().find(|word| word.chars().all(|c| c.is_ascii_digit())))
             .ok_or_else(|| anyhow::anyhow!("Could not parse task ID from output: {}", output))?;
         
         id_str.parse().with_context(|| "Failed to parse task ID")
