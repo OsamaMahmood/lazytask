@@ -22,6 +22,8 @@ pub enum Action {
     Filter,
     Context,
     Reports,
+    Character(char),
+    Backspace,
     None,
 }
 
@@ -46,25 +48,41 @@ impl InputHandler {
     }
 
     fn handle_key_event(&self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Char('q') => Action::Quit,
-            KeyCode::F(1) => Action::Help,
-            KeyCode::F(5) => Action::Refresh,
-            KeyCode::Char('a') => Action::AddTask,
-            KeyCode::Char('e') => Action::EditTask,
-            KeyCode::Char('d') => Action::DoneTask,
-            KeyCode::Delete => Action::DeleteTask,
-            KeyCode::Up => Action::MoveUp,
-            KeyCode::Down => Action::MoveDown,
-            KeyCode::Left => Action::MoveLeft,
-            KeyCode::Right => Action::MoveRight,
-            KeyCode::Enter => Action::Select,
-            KeyCode::Esc => Action::Back,
-            KeyCode::Char('/') => Action::Filter,
-            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
-            KeyCode::Char('c') => Action::Context,
-            KeyCode::Char('r') => Action::Reports,
-            _ => Action::None,
+        self.handle_key_event_with_context(key, false)
+    }
+
+    pub fn handle_key_event_with_context(&self, key: KeyEvent, in_form: bool) -> Action {
+        if in_form {
+            match key.code {
+                KeyCode::Esc => Action::Back,
+                KeyCode::Enter => Action::Select,
+                KeyCode::Up => Action::MoveUp,
+                KeyCode::Down => Action::MoveDown,
+                KeyCode::Backspace => Action::Backspace,
+                KeyCode::Char(c) => Action::Character(c),
+                _ => Action::None,
+            }
+        } else {
+            match key.code {
+                KeyCode::Char('q') => Action::Quit,
+                KeyCode::F(1) => Action::Help,
+                KeyCode::F(5) => Action::Refresh,
+                KeyCode::Char('a') => Action::AddTask,
+                KeyCode::Char('e') => Action::EditTask,
+                KeyCode::Char('d') => Action::DoneTask,
+                KeyCode::Delete => Action::DeleteTask,
+                KeyCode::Up => Action::MoveUp,
+                KeyCode::Down => Action::MoveDown,
+                KeyCode::Left => Action::MoveLeft,
+                KeyCode::Right => Action::MoveRight,
+                KeyCode::Enter => Action::Select,
+                KeyCode::Esc => Action::Back,
+                KeyCode::Char('/') => Action::Filter,
+                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
+                KeyCode::Char('c') => Action::Context,
+                KeyCode::Char('r') => Action::Reports,
+                _ => Action::None,
+            }
         }
     }
 }
