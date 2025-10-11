@@ -1,25 +1,24 @@
-// Task display widget
+// Task display widget with clean, template-like table configuration
 
 use chrono::Utc;
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, Cell, Row, Table, TableState},
     Frame,
 };
 
 use crate::data::models::Task;
 
 pub struct TaskListWidget {
-    pub state: ListState,
+    pub state: TableState,
     tasks: Vec<Task>,
 }
 
 impl TaskListWidget {
     pub fn new() -> Self {
         TaskListWidget {
-            state: ListState::default(),
+            state: TableState::default(),
             tasks: Vec::new(),
         }
     }
@@ -68,126 +67,179 @@ impl TaskListWidget {
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect) {
-        // Create header with proper markdown-style table formatting
-        let header_line = format!(
-            "│{:^6}│{:^8}│{:^8}│{:^3}│{:^16}│{:^14}│{:^12}│{:^30}│{:^6}│",
-            "ID", "Age", "Status", "P", "Project", "Tag", "Due", "Description", "Urg"
-        );
+        let formatter = TaskTableFormatter::new();
         
-        let separator_line = format!(
-            "├{}┼{}┼{}┼{}┼{}┼{}┼{}┼{}┼{}┤",
-            "─".repeat(6), "─".repeat(8), "─".repeat(8), "─".repeat(3),
-            "─".repeat(16), "─".repeat(14), "─".repeat(12), "─".repeat(30), "─".repeat(6)
-        );
+        // Create clean, minimal headers
+        let header_cells = formatter.headers()
+            .iter()
+            .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)))
+            .collect::<Vec<_>>();
 
-        let mut items = Vec::new();
-        
-        // Add header
-        items.push(ListItem::new(Line::from(vec![
-            Span::styled(header_line, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        ])));
-        
-        // Add separator
-        items.push(ListItem::new(Line::from(vec![
-            Span::styled(separator_line, Style::default().fg(Color::Gray))
-        ])));
+        let header = Row::new(header_cells)
+            .style(Style::default().bg(Color::DarkGray))
+            .height(1);
 
-        // Add task rows
-        for task in &self.tasks {
-            let id = task.id.map(|id| id.to_string()).unwrap_or_else(|| "".to_string());
-            
-            // Calculate age (time since entry)
-            let age = {
-                let now = Utc::now();
-                let duration = now - task.entry;
-                
-                if duration.num_minutes() < 60 {
-                    format!("{}min", duration.num_minutes().max(1))
-                } else if duration.num_hours() < 24 {
-                    format!("{}h", duration.num_hours())
-                } else if duration.num_days() < 30 {
-                    format!("{}d", duration.num_days())
-                } else if duration.num_days() < 365 {
-                    let weeks = duration.num_days() / 7;
-                    if weeks < 10 {
-                        format!("{}w", weeks)
-                    } else {
-                        let months = duration.num_days() / 30;
-                        format!("{}mth", months)
-                    }
-                } else {
-                    format!("{}y", duration.num_days() / 365)
-                }
-            };
-            
-            let status = match task.status {
-                crate::data::models::TaskStatus::Pending => "P",
-                crate::data::models::TaskStatus::Completed => "C", 
-                crate::data::models::TaskStatus::Deleted => "D",
-                crate::data::models::TaskStatus::Waiting => "W",
-                crate::data::models::TaskStatus::Recurring => "R",
-            };
-            
-            let priority = task.priority.as_ref()
-                .map(|p| p.as_char().to_string())
-                .unwrap_or_else(|| " ".to_string());
-            
-            let project_raw = task.project.as_deref().unwrap_or("");
-            let project = if project_raw.len() > 15 {
-                format!("{}...", &project_raw[..12])
-            } else {
-                project_raw.to_string()
-            };
-            
-            let tags_raw = if task.tags.is_empty() {
-                "".to_string()
-            } else {
-                task.tags.join(",")
-            };
-            let tags = if tags_raw.len() > 13 {
-                format!("{}...", &tags_raw[..10])
-            } else {
-                tags_raw
-            };
-            
-            let due = if let Some(due) = task.due {
-                let now = Utc::now();
-                let days_until_due = (due.date_naive() - now.date_naive()).num_days();
-                
-                if days_until_due < 0 {
-                    format!("{}d", days_until_due)
-                } else if days_until_due <= 7 {
-                    format!("{}d", days_until_due)
-                } else {
-                    due.format("%m/%d").to_string()
-                }
-            } else {
-                "".to_string()
-            };
+        // Create data rows using the formatter
+        let rows: Vec<Row> = self.tasks
+            .iter()
+            .map(|task| formatter.format_task_row(task))
+            .collect();
 
-            let description = if task.description.len() > 29 {
-                format!("{}...", &task.description[..26])
-            } else {
-                task.description.clone()
-            };
-
-            let urgency = format!("{:.1}", task.urgency);
-            
-            // Format row with proper table styling
-            let row_line = format!(
-                "│{:^6}│{:<8}│{:^8}│{:^3}│{:<16}│{:<14}│{:^12}│{:<30}│{:>6}│",
-                id, age, status, priority, project, tags, due, description, urgency
-            );
-            
-            items.push(ListItem::new(row_line));
-        }
-
-        let list = List::new(items)
-            .block(Block::default().title(" Tasks ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
+        let column_widths = formatter.column_widths();
+        let table = Table::new(rows)
+            .header(header)
+            .block(Block::default()
+                .title(" Tasks ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+            )
+            .widths(&column_widths)
+            .column_spacing(2)  // Clean spacing between columns
             .style(Style::default().fg(Color::White))
-            .highlight_style(Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD))
-            .highlight_symbol("» ");
+            .highlight_style(
+                Style::default()
+                    .bg(Color::Blue)
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            );
 
-        f.render_stateful_widget(list, area, &mut self.state);
+        f.render_stateful_widget(table, area, &mut self.state);
+    }
+}
+
+// Clean, template-like table configuration - much better than hardcoding!
+struct TaskTableFormatter;
+
+impl TaskTableFormatter {
+    fn new() -> Self {
+        TaskTableFormatter
+    }
+    
+    // Define column headers - easy to modify
+    fn headers(&self) -> [&'static str; 9] {
+        ["ID", "Age", "Status", "P", "Project", "Tag", "Due", "Description", "Urg"]
+    }
+    
+    // Define column widths - optimized for readability with more space for description
+    fn column_widths(&self) -> [Constraint; 9] {
+        [
+            Constraint::Length(4),   // ID - minimal
+            Constraint::Length(4),   // Age - compact  
+            Constraint::Length(9),   // Status - minimal (St)
+            Constraint::Length(2),   // Priority - minimal
+            Constraint::Length(15),  // Project - reduced from 16
+            Constraint::Length(8),   // Tags - reduced from 14
+            Constraint::Length(6),   // Due - reduced from 12
+            Constraint::Min(40),     // Description - MUCH MORE SPACE!
+            Constraint::Length(5),   // Urgency - compact
+        ]
+    }
+    
+    // Format a complete task row with proper spacing
+    fn format_task_row(&self, task: &Task) -> Row {
+        let cells = vec![
+            Cell::from(self.format_id(task.id)),
+            Cell::from(self.format_age(task.entry)), 
+            Cell::from(self.format_status(&task.status)),
+            Cell::from(self.format_priority(&task.priority)),
+            Cell::from(self.format_project(&task.project)),
+            Cell::from(self.format_tags(&task.tags)),
+            Cell::from(self.format_due(task.due)),
+            Cell::from(self.format_description(&task.description)),
+            Cell::from(self.format_urgency(task.urgency)),
+        ];
+        Row::new(cells).height(1)
+    }
+    
+    // Individual field formatters - clean and maintainable
+    fn format_id(&self, id: Option<u32>) -> String {
+        id.map(|i| i.to_string()).unwrap_or_else(|| "".to_string())
+    }
+    
+    fn format_age(&self, entry: chrono::DateTime<Utc>) -> String {
+        let now = Utc::now();
+        let duration = now - entry;
+        
+        if duration.num_minutes() < 60 {
+            format!("{}m", duration.num_minutes().max(1))
+        } else if duration.num_hours() < 24 {
+            format!("{}h", duration.num_hours())
+        } else if duration.num_days() < 30 {
+            format!("{}d", duration.num_days())
+        } else if duration.num_days() < 365 {
+            let weeks = duration.num_days() / 7;
+            if weeks < 10 {
+                format!("{}w", weeks)
+            } else {
+                format!("{}mo", duration.num_days() / 30)
+            }
+        } else {
+            format!("{}y", duration.num_days() / 365)
+        }
+    }
+    
+    fn format_status(&self, status: &crate::data::models::TaskStatus) -> String {
+        match status {
+            crate::data::models::TaskStatus::Pending => "Pending".to_string(),
+            crate::data::models::TaskStatus::Completed => "Completed".to_string(),
+            crate::data::models::TaskStatus::Deleted => "Deleted".to_string(),
+            crate::data::models::TaskStatus::Waiting => "Waiting".to_string(),
+            crate::data::models::TaskStatus::Recurring => "Recurring".to_string(),
+        }
+    }
+    
+    fn format_priority(&self, priority: &Option<crate::data::models::Priority>) -> String {
+        priority.as_ref()
+            .map(|p| p.as_char().to_string())
+            .unwrap_or_else(|| " ".to_string())
+    }
+    
+    fn format_project(&self, project: &Option<String>) -> String {
+        project.as_deref()
+            .map(|p| if p.len() > 9 { format!("{}...", &p[..6]) } else { p.to_string() })
+            .unwrap_or_else(|| "".to_string())
+    }
+    
+    fn format_tags(&self, tags: &[String]) -> String {
+        if tags.is_empty() {
+            "".to_string()
+        } else {
+            let joined = tags.join(",");
+            if joined.len() > 7 { 
+                format!("{}...", &joined[..4])
+            } else { 
+                joined 
+            }
+        }
+    }
+    
+    fn format_due(&self, due: Option<chrono::DateTime<Utc>>) -> String {
+        if let Some(due) = due {
+            let now = Utc::now();
+            let days_until_due = (due.date_naive() - now.date_naive()).num_days();
+            
+            if days_until_due < 0 {
+                format!("{}d", days_until_due)
+            } else if days_until_due <= 7 {
+                format!("{}d", days_until_due)  
+            } else {
+                due.format("%m/%d").to_string()
+            }
+        } else {
+            "".to_string()
+        }
+    }
+    
+    fn format_description(&self, description: &str) -> String {
+        // Much more space for description - up to 39 characters!
+        if description.len() > 39 {
+            format!("{}...", &description[..36])
+        } else {
+            description.to_string()
+        }
+    }
+    
+    fn format_urgency(&self, urgency: f64) -> String {
+        format!("{:.1}", urgency)
     }
 }
