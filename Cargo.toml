@@ -1,0 +1,27 @@
+[package]
+name = "lazytask"
+version = "0.1.0"
+edition = "2021"
+authors = ["LazyTask Contributors"]
+description = "Modern Terminal User Interface for Taskwarrior"
+license = "MIT"
+repository = "https://github.com/osamamahmood/lazytask"
+
+[[bin]]
+name = "lazytask"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.24"
+crossterm = "0.27"
+tokio = { version = "1.0", features = ["full"] }
+rusqlite = { version = "0.29", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+clap = { version = "4.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+config = "0.13"
+dirs = "5.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+serde_json = "1.0"
