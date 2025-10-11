@@ -1,0 +1,170 @@
+# LazyTask Color Themes
+# Define color schemes for different UI elements
+
+[catppuccin-mocha]
+name = "Catppuccin Mocha"
+description = "A soothing pastel theme for the high-spirited!"
+
+[catppuccin-mocha.colors]
+# Base colors
+background = "#1e1e2e"
+foreground = "#cdd6f4"
+cursor = "#f5e0dc"
+
+# Accent colors  
+primary = "#89b4fa"     # Blue
+secondary = "#f38ba8"   # Pink
+accent = "#fab387"      # Peach
+
+# Status colors
+success = "#a6e3a1"     # Green
+warning = "#f9e2af"     # Yellow
+error = "#f38ba8"       # Pink
+info = "#89dceb"        # Sky
+
+# UI element colors
+border = "#6c7086"      # Overlay1
+selected = "#313244"    # Surface0
+highlight = "#45475a"   # Surface1
+inactive = "#585b70"    # Overlay0
+
+# Priority colors
+priority_high = "#f38ba8"    # Pink
+priority_medium = "#f9e2af"  # Yellow  
+priority_low = "#a6e3a1"     # Green
+
+# Project colors (cycling through catppuccin colors)
+project_1 = "#89b4fa"   # Blue
+project_2 = "#cba6f7"   # Mauve  
+project_3 = "#f38ba8"   # Pink
+project_4 = "#fab387"   # Peach
+project_5 = "#f9e2af"   # Yellow
+project_6 = "#a6e3a1"   # Green
+project_7 = "#94e2d5"   # Teal
+project_8 = "#89dceb"   # Sky
+
+[catppuccin-latte]
+name = "Catppuccin Latte"
+description = "Light theme for those who prefer bright interfaces"
+
+[catppuccin-latte.colors] 
+# Base colors
+background = "#eff1f5"
+foreground = "#4c4f69"
+cursor = "#dc8a78"
+
+# Accent colors
+primary = "#1e66f5"     # Blue
+secondary = "#e64553"   # Red  
+accent = "#fe640b"      # Peach
+
+# Status colors
+success = "#40a02b"     # Green
+warning = "#df8e1d"     # Yellow
+error = "#d20f39"       # Red
+info = "#179299"        # Teal
+
+# UI element colors
+border = "#9ca0b0"      # Overlay1
+selected = "#e6e9ef"    # Surface0
+highlight = "#dce0e8"   # Surface1  
+inactive = "#bcc0cc"    # Overlay0
+
+# Priority colors
+priority_high = "#d20f39"    # Red
+priority_medium = "#df8e1d"  # Yellow
+priority_low = "#40a02b"     # Green
+
+# Project colors
+project_1 = "#1e66f5"   # Blue
+project_2 = "#8839ef"   # Purple
+project_3 = "#e64553"   # Red
+project_4 = "#fe640b"   # Peach
+project_5 = "#df8e1d"   # Yellow
+project_6 = "#40a02b"   # Green
+project_7 = "#179299"   # Teal
+project_8 = "#04a5e5"   # Sapphire
+
+[dracula]
+name = "Dracula"
+description = "Dark theme inspired by the Dracula color scheme"
+
+[dracula.colors]
+# Base colors
+background = "#282a36"
+foreground = "#f8f8f2"
+cursor = "#f8f8f2"
+
+# Accent colors
+primary = "#bd93f9"     # Purple
+secondary = "#ff79c6"   # Pink
+accent = "#ffb86c"      # Orange
+
+# Status colors  
+success = "#50fa7b"     # Green
+warning = "#f1fa8c"     # Yellow
+error = "#ff5555"       # Red
+info = "#8be9fd"        # Cyan
+
+# UI element colors
+border = "#6272a4"      # Comment
+selected = "#44475a"    # Current Line
+highlight = "#44475a"   # Current Line
+inactive = "#6272a4"    # Comment
+
+# Priority colors
+priority_high = "#ff5555"    # Red
+priority_medium = "#f1fa8c"  # Yellow
+priority_low = "#50fa7b"     # Green
+
+# Project colors
+project_1 = "#bd93f9"   # Purple
+project_2 = "#ff79c6"   # Pink
+project_3 = "#8be9fd"   # Cyan
+project_4 = "#50fa7b"   # Green  
+project_5 = "#f1fa8c"   # Yellow
+project_6 = "#ffb86c"   # Orange
+project_7 = "#ff5555"   # Red
+project_8 = "#f8f8f2"   # Foreground
+
+[gruvbox]
+name = "Gruvbox Dark"  
+description = "Retro groove color scheme with earthy tones"
+
+[gruvbox.colors]
+# Base colors
+background = "#282828"
+foreground = "#ebdbb2"
+cursor = "#ebdbb2"
+
+# Accent colors
+primary = "#83a598"     # Blue
+secondary = "#d3869b"   # Purple  
+accent = "#fe8019"      # Orange
+
+# Status colors
+success = "#b8bb26"     # Green
+warning = "#fabd2f"     # Yellow
+error = "#fb4934"       # Red
+info = "#83a598"        # Blue
+
+# UI element colors  
+border = "#665c54"      # Gray
+selected = "#3c3836"    # Dark1
+highlight = "#504945"   # Dark2
+inactive = "#7c6f64"    # Gray
+
+# Priority colors
+priority_high = "#fb4934"    # Red
+priority_medium = "#fabd2f"  # Yellow
+priority_low = "#b8bb26"     # Green
+
+# Project colors
+project_1 = "#83a598"   # Blue
+project_2 = "#d3869b"   # Purple
+project_3 = "#8ec07c"   # Aqua  
+project_4 = "#b8bb26"   # Green
+project_5 = "#fabd2f"   # Yellow
+project_6 = "#fe8019"   # Orange
+project_7 = "#fb4934"   # Red
+project_8 = "#ebdbb2"   # Foreground

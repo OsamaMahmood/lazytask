@@ -1,0 +1,107 @@
+# LazyTask Keybindings Configuration
+# Customize keyboard shortcuts for different views and contexts
+
+[global]
+quit = "q"
+help = "F1"
+refresh = "F5" 
+force_quit = "Ctrl+c"
+
+[task_list]
+# Task management
+add_task = "a"
+edit_task = "e"
+done_task = "d"
+delete_task = "Delete"
+start_task = "s"
+stop_task = "S"
+annotate_task = "n"
+duplicate_task = "D"
+
+# Navigation
+move_up = "Up"
+move_down = "Down"
+move_left = "Left"
+move_right = "Right"
+first_task = "Home"
+last_task = "End"
+page_up = "PageUp"
+page_down = "PageDown"
+
+# Selection and interaction
+select = "Enter"
+back = "Esc"
+select_all = "Ctrl+a"
+toggle_select = "Space"
+
+# Views and filters
+filter = "/"
+clear_filter = "Ctrl+/"
+context = "c"
+reports = "r"
+calendar = "C"
+projects = "p"
+tags = "t"
+
+# Sorting
+sort_by_due = "1"
+sort_by_priority = "2"
+sort_by_project = "3"
+sort_by_urgency = "4"
+
+[task_detail]
+# Edit mode
+save = "Ctrl+s"
+cancel = "Esc"
+next_field = "Tab"
+prev_field = "Shift+Tab"
+
+# Field-specific
+edit_description = "Enter"
+edit_project = "p"
+edit_priority = "P"
+edit_due = "d"
+add_tag = "t"
+remove_tag = "T"
+add_annotation = "a"
+
+[calendar_view]
+# Navigation
+prev_month = "Left"
+next_month = "Right"
+prev_year = "Up"
+next_year = "Down"
+today = "t"
+go_to_date = "g"
+
+# Task interaction
+add_task_date = "a"
+view_day_tasks = "Enter"
+back = "Esc"
+
+[reports_view]
+# Report navigation
+next_report = "Right"
+prev_report = "Left"
+export_report = "e"
+refresh_data = "r"
+back = "Esc"
+
+[filter_builder]
+# Filter construction
+add_filter = "a"
+remove_filter = "d"
+clear_all = "c"
+apply_filters = "Enter"
+save_preset = "s"
+load_preset = "l"
+cancel = "Esc"
+
+[context_switcher]
+# Context management
+select_context = "Enter"
+create_context = "c"
+edit_context = "e"
+delete_context = "d"
+none_context = "n"
+back = "Esc"

@@ -1,0 +1,59 @@
+# LazyTask Default Configuration
+# This file contains the default configuration values for LazyTask
+
+[theme]
+name = "catppuccin-mocha"
+
+[theme.colors]
+background = "#1e1e2e"
+foreground = "#cdd6f4"  
+primary = "#89b4fa"
+secondary = "#f38ba8"
+success = "#a6e3a1"
+warning = "#f9e2af"
+error = "#f38ba8"
+
+[ui]
+default_view = "task_list"
+show_help_bar = true
+refresh_interval = 1000
+task_list_columns = [
+    "id",
+    "project", 
+    "priority",
+    "due",
+    "description"
+]
+
+[taskwarrior]
+# Leave empty to auto-detect from environment
+taskrc_path = ""
+data_location = ""
+sync_enabled = false
+
+[keybindings.global]
+quit = "q"
+help = "F1"
+refresh = "F5"
+force_quit = "Ctrl+c"
+
+[keybindings.task_list]
+add_task = "a"
+edit_task = "e"
+done_task = "d"
+delete_task = "Delete"
+move_up = "Up"
+move_down = "Down"
+move_left = "Left"
+move_right = "Right"
+select = "Enter"
+back = "Esc"
+filter = "/"
+context = "c"
+reports = "r"
+
+[keybindings.task_detail]
+save = "Ctrl+s"
+cancel = "Esc"
+next_field = "Tab"
+prev_field = "Shift+Tab"
