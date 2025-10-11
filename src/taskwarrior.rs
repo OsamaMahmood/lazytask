@@ -48,20 +48,14 @@ impl TaskwarriorIntegration {
     }
 
     pub async fn list_tasks(&self, filter: Option<&str>) -> Result<Vec<Task>> {
-        // Try database first for better performance, fall back to CLI
-        if let Some(db) = &self.db {
-            db.list_tasks(filter).await
-        } else {
-            self.cli.list_tasks(filter).await
-        }
+        // For now, always use CLI since DB implementation is not complete
+        // TODO: Implement direct database access for better performance
+        self.cli.list_tasks(filter).await
     }
 
     pub async fn get_task(&self, id: u32) -> Result<Option<Task>> {
-        if let Some(db) = &self.db {
-            db.get_task(id).await
-        } else {
-            self.cli.get_task(id).await
-        }
+        // For now, always use CLI since DB implementation is not complete
+        self.cli.get_task(id).await
     }
 
     pub async fn add_task(&self, description: &str, attributes: &[(&str, &str)]) -> Result<u32> {
@@ -120,7 +114,13 @@ impl TaskwarriorCLI {
         let mut args = vec!["add".to_string(), description.to_string()];
         
         for (key, value) in attributes {
-            args.push(format!("{}:{}", key, value));
+            if value.is_empty() {
+                // For tags and other attributes without values (like +tag)
+                args.push(key.to_string());
+            } else {
+                // For attributes with values (like project:name, priority:H)
+                args.push(format!("{}:{}", key, value));
+            }
         }
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -129,7 +129,9 @@ impl TaskwarriorCLI {
         // Parse the task ID from output like "Created task 42."
         let id_str = output
             .split_whitespace()
-            .find(|word| word.chars().all(|c| c.is_ascii_digit()))
+            .find(|word| word.ends_with('.') && word[..word.len()-1].chars().all(|c| c.is_ascii_digit()))
+            .map(|word| &word[..word.len()-1])  // Remove the trailing dot
+            .or_else(|| output.split_whitespace().find(|word| word.chars().all(|c| c.is_ascii_digit())))
             .ok_or_else(|| anyhow::anyhow!("Could not parse task ID from output: {}", output))?;
         
         id_str.parse().with_context(|| "Failed to parse task ID")
@@ -139,7 +141,13 @@ impl TaskwarriorCLI {
         let mut args = vec![id.to_string(), "modify".to_string()];
         
         for (key, value) in attributes {
-            args.push(format!("{}:{}", key, value));
+            if value.is_empty() {
+                // For tags and other attributes without values (like +tag)
+                args.push(key.to_string());
+            } else {
+                // For attributes with values (like project:name, priority:H)
+                args.push(format!("{}:{}", key, value));
+            }
         }
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -163,7 +171,7 @@ impl TaskwarriorCLI {
         let mut cmd = Command::new("task");
         
         if let Some(taskrc) = &self.taskrc_path {
-            cmd.arg("rc:").arg(taskrc);
+            cmd.arg(format!("rc:{}", taskrc.display()));
         }
         
         cmd.args(args);

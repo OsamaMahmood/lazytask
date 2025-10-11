@@ -8,7 +8,11 @@ use ratatui::{
 };
 
 use crate::config::Config;
+use crate::data::models::Task;
 use crate::handlers::input::Action;
+use crate::taskwarrior::TaskwarriorIntegration;
+use crate::ui::components::task_form::{TaskForm, TaskFormResult};
+use crate::ui::components::task_list::TaskListWidget;
 
 pub enum AppView {
     TaskList,
@@ -22,6 +26,9 @@ pub struct AppUI {
     config: Config,
     current_view: AppView,
     show_help_bar: bool,
+    task_list_widget: TaskListWidget,
+    tasks: Vec<Task>,
+    task_form: Option<TaskForm>,
 }
 
 impl AppUI {
@@ -30,7 +37,55 @@ impl AppUI {
             config: config.clone(),
             current_view: AppView::TaskList,
             show_help_bar: config.ui.show_help_bar,
+            task_list_widget: TaskListWidget::new(),
+            tasks: Vec::new(),
+            task_form: None,
         })
+    }
+
+    pub async fn load_tasks(&mut self, taskwarrior: &TaskwarriorIntegration) -> Result<()> {
+        // Load all tasks (not just pending) and sort by entry date (newest first)
+        let mut tasks = taskwarrior.list_tasks(None).await?;
+        tasks.sort_by(|a, b| b.entry.cmp(&a.entry)); // Newest first
+        self.tasks = tasks;
+        self.task_list_widget.set_tasks(self.tasks.clone());
+        Ok(())
+    }
+
+    pub fn has_active_form(&self) -> bool {
+        self.task_form.is_some()
+    }
+
+    fn task_to_attributes(task: &Task) -> Vec<(String, String)> {
+        let mut attributes = Vec::new();
+
+        // Add project if present
+        if let Some(ref project) = task.project {
+            attributes.push(("project".to_string(), project.clone()));
+        }
+
+        // Add priority if present
+        if let Some(ref priority) = task.priority {
+            let priority_str = match priority {
+                crate::data::models::Priority::High => "H",
+                crate::data::models::Priority::Medium => "M", 
+                crate::data::models::Priority::Low => "L",
+            };
+            attributes.push(("priority".to_string(), priority_str.to_string()));
+        }
+
+        // Add tags if present (taskwarrior format: +tag1 +tag2)
+        for tag in &task.tags {
+            attributes.push((format!("+{}", tag), "".to_string()));
+        }
+
+        // Add due date if present
+        if let Some(due) = task.due {
+            let due_str = due.format("%Y-%m-%d").to_string();
+            attributes.push(("due".to_string(), due_str));
+        }
+
+        attributes
     }
 
     pub fn draw(&mut self, f: &mut Frame) {
@@ -50,21 +105,62 @@ impl AppUI {
         self.draw_header(f, chunks[0]);
 
         // Draw main content based on current view
-        match self.current_view {
+        match &mut self.current_view {
             AppView::TaskList => self.draw_task_list(f, chunks[1]),
-            AppView::TaskDetail => self.draw_task_detail(f, chunks[1]),
-            AppView::Reports => self.draw_reports(f, chunks[1]),
-            AppView::Settings => self.draw_settings(f, chunks[1]),
-            AppView::Help => self.draw_help(f, chunks[1]),
+            _ => {
+                match self.current_view {
+                    AppView::TaskDetail => self.draw_task_detail(f, chunks[1]),
+                    AppView::Reports => self.draw_reports(f, chunks[1]),
+                    AppView::Settings => self.draw_settings(f, chunks[1]),
+                    AppView::Help => self.draw_help(f, chunks[1]),
+                    _ => {}
+                }
+            }
         }
 
         // Draw help bar
         if self.show_help_bar {
             self.draw_help_bar(f, chunks[2]);
         }
+
+        // Draw task form as overlay if open
+        if let Some(ref form) = self.task_form {
+            form.render(f, size);
+        }
     }
 
-    pub async fn handle_action(&mut self, action: Action) -> Result<()> {
+    pub async fn handle_action(&mut self, action: Action, taskwarrior: &TaskwarriorIntegration) -> Result<()> {
+        // Handle form actions first if form is open
+        if let Some(ref mut form) = self.task_form {
+            if let Some(result) = form.handle_input(action.clone())? {
+                match result {
+                    TaskFormResult::Save(task) => {
+                        if let Some(task_id) = task.id {
+                            // Update existing task
+                            let attributes = Self::task_to_attributes(&task);
+                            let attributes_refs: Vec<(&str, &str)> = attributes.iter()
+                                .map(|(k, v)| (k.as_str(), v.as_str()))
+                                .collect();
+                            taskwarrior.modify_task(task_id, &attributes_refs).await?;
+                        } else {
+                            // Add new task
+                            let attributes = Self::task_to_attributes(&task);
+                            let attributes_refs: Vec<(&str, &str)> = attributes.iter()
+                                .map(|(k, v)| (k.as_str(), v.as_str()))
+                                .collect();
+                            taskwarrior.add_task(&task.description, &attributes_refs).await?;
+                        }
+                        self.task_form = None;
+                        self.load_tasks(taskwarrior).await?;
+                    }
+                    TaskFormResult::Cancel => {
+                        self.task_form = None;
+                    }
+                }
+                return Ok(());
+            }
+        }
+
         match action {
             Action::Quit => {
                 // This will be handled by the main app loop
@@ -76,13 +172,32 @@ impl AppUI {
                 self.current_view = AppView::Reports;
             }
             Action::Back => {
-                self.current_view = AppView::TaskList;
+                if self.task_form.is_some() {
+                    self.task_form = None;
+                } else {
+                    self.current_view = AppView::TaskList;
+                }
+            }
+            Action::MoveUp => {
+                if self.task_form.is_none() && matches!(self.current_view, AppView::TaskList) {
+                    self.task_list_widget.previous();
+                }
+            }
+            Action::MoveDown => {
+                if self.task_form.is_none() && matches!(self.current_view, AppView::TaskList) {
+                    self.task_list_widget.next();
+                }
+            }
+            Action::Refresh => {
+                self.load_tasks(taskwarrior).await?;
             }
             _ => {
                 // Handle other actions based on current view
-                match self.current_view {
-                    AppView::TaskList => self.handle_task_list_action(action).await?,
-                    _ => {}
+                if self.task_form.is_none() {
+                    match self.current_view {
+                        AppView::TaskList => self.handle_task_list_action(action, taskwarrior).await?,
+                        _ => {}
+                    }
                 }
             }
         }
@@ -104,21 +219,8 @@ impl AppUI {
         f.render_widget(header, area);
     }
 
-    fn draw_task_list(&self, f: &mut Frame, area: Rect) {
-        // Placeholder task list - will be populated with real data later
-        let items = vec![
-            ListItem::new("Task 1 - Buy groceries [Home] H"),
-            ListItem::new("Task 2 - Fix bug [Work] M"),
-            ListItem::new("Task 3 - Call mom [Personal] L"),
-        ];
-
-        let tasks = List::new(items)
-            .block(Block::default().title("Tasks").borders(Borders::ALL))
-            .style(Style::default().fg(Color::White))
-            .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
-            .highlight_symbol("> ");
-
-        f.render_widget(tasks, area);
+    fn draw_task_list(&mut self, f: &mut Frame, area: Rect) {
+        self.task_list_widget.render(f, area);
     }
 
     fn draw_task_detail(&self, f: &mut Frame, area: Rect) {
@@ -193,19 +295,31 @@ impl AppUI {
         f.render_widget(help_bar, area);
     }
 
-    async fn handle_task_list_action(&mut self, action: Action) -> Result<()> {
+    async fn handle_task_list_action(&mut self, action: Action, taskwarrior: &TaskwarriorIntegration) -> Result<()> {
         match action {
             Action::AddTask => {
-                // TODO: Open add task dialog
+                self.task_form = Some(TaskForm::new_task());
             }
             Action::EditTask => {
-                // TODO: Open edit task dialog
+                if let Some(task) = self.task_list_widget.selected_task() {
+                    self.task_form = Some(TaskForm::edit_task(task.clone()));
+                }
             }
             Action::DoneTask => {
-                // TODO: Mark selected task as done
+                if let Some(task) = self.task_list_widget.selected_task() {
+                    if let Some(task_id) = task.id {
+                        taskwarrior.done_task(task_id).await?;
+                        self.load_tasks(taskwarrior).await?;
+                    }
+                }
             }
             Action::DeleteTask => {
-                // TODO: Delete selected task
+                if let Some(task) = self.task_list_widget.selected_task() {
+                    if let Some(task_id) = task.id {
+                        taskwarrior.delete_task(task_id).await?;
+                        self.load_tasks(taskwarrior).await?;
+                    }
+                }
             }
             _ => {}
         }
