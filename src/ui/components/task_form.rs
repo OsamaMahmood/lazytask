@@ -31,6 +31,11 @@ pub struct TaskForm {
     pub tags_input: String,
     pub due_input: String,
     pub priority_index: usize,
+    // Cursor positions for each text field
+    pub description_cursor: usize,
+    pub project_cursor: usize,
+    pub tags_cursor: usize,
+    pub due_cursor: usize,
 }
 
 impl TaskForm {
@@ -44,6 +49,11 @@ impl TaskForm {
             tags_input: String::new(),
             due_input: String::new(),
             priority_index: 0, // None, H, M, L
+            // Initialize cursors at end of text
+            description_cursor: 0,
+            project_cursor: 0,
+            tags_cursor: 0,
+            due_cursor: 0,
         }
     }
 
@@ -60,15 +70,23 @@ impl TaskForm {
             .map(|d| d.format("%Y-%m-%d").to_string())
             .unwrap_or_default();
 
+        let description_text = task.description.clone();
+        let project_text = task.project.clone().unwrap_or_default();
+        
         TaskForm {
-            description_input: task.description.clone(),
-            project_input: task.project.clone().unwrap_or_default(),
-            tags_input: tags_str,
-            due_input: due_str,
+            description_input: description_text.clone(),
+            project_input: project_text.clone(),
+            tags_input: tags_str.clone(),
+            due_input: due_str.clone(),
             task,
             active_field: FormField::Description,
             is_editing: true, // Start editing immediately
             priority_index,
+            // Initialize cursors at end of existing text
+            description_cursor: description_text.len(),
+            project_cursor: project_text.len(),
+            tags_cursor: tags_str.len(),
+            due_cursor: due_str.len(),
         }
     }
 
@@ -100,18 +118,26 @@ impl TaskForm {
                 self.previous_field();
                 self.is_editing = true; // Auto-enter editing mode
             }
-            Action::MoveRight => {
-                // Just ensure editing mode is on
-                self.is_editing = true;
-            }
             Action::Character(c) => {
                 // Auto-enter editing mode if not already editing
                 self.is_editing = true;
                 match self.active_field {
-                    FormField::Description => self.description_input.push(c),
-                    FormField::Project => self.project_input.push(c),
-                    FormField::Tags => self.tags_input.push(c),
-                    FormField::Due => self.due_input.push(c),
+                    FormField::Description => {
+                        self.description_input.insert(self.description_cursor, c);
+                        self.description_cursor += 1;
+                    }
+                    FormField::Project => {
+                        self.project_input.insert(self.project_cursor, c);
+                        self.project_cursor += 1;
+                    }
+                    FormField::Tags => {
+                        self.tags_input.insert(self.tags_cursor, c);
+                        self.tags_cursor += 1;
+                    }
+                    FormField::Due => {
+                        self.due_input.insert(self.due_cursor, c);
+                        self.due_cursor += 1;
+                    }
                     FormField::Priority => {
                         // Priority field uses index, handle separately
                         match c.to_ascii_uppercase() {
@@ -128,13 +154,120 @@ impl TaskForm {
                 // Auto-enter editing mode if not already editing
                 self.is_editing = true;
                 match self.active_field {
-                    FormField::Description => { self.description_input.pop(); }
-                    FormField::Project => { self.project_input.pop(); }
-                    FormField::Tags => { self.tags_input.pop(); }
-                    FormField::Due => { self.due_input.pop(); }
+                    FormField::Description => {
+                        if self.description_cursor > 0 {
+                            self.description_cursor -= 1;
+                            self.description_input.remove(self.description_cursor);
+                        }
+                    }
+                    FormField::Project => {
+                        if self.project_cursor > 0 {
+                            self.project_cursor -= 1;
+                            self.project_input.remove(self.project_cursor);
+                        }
+                    }
+                    FormField::Tags => {
+                        if self.tags_cursor > 0 {
+                            self.tags_cursor -= 1;
+                            self.tags_input.remove(self.tags_cursor);
+                        }
+                    }
+                    FormField::Due => {
+                        if self.due_cursor > 0 {
+                            self.due_cursor -= 1;
+                            self.due_input.remove(self.due_cursor);
+                        }
+                    }
                     FormField::Priority => {
                         // Reset priority to None
                         self.priority_index = 0;
+                    }
+                }
+            }
+            Action::MoveLeft => {
+                if self.is_editing {
+                    match self.active_field {
+                        FormField::Description => {
+                            if self.description_cursor > 0 {
+                                self.description_cursor -= 1;
+                            }
+                        }
+                        FormField::Project => {
+                            if self.project_cursor > 0 {
+                                self.project_cursor -= 1;
+                            }
+                        }
+                        FormField::Tags => {
+                            if self.tags_cursor > 0 {
+                                self.tags_cursor -= 1;
+                            }
+                        }
+                        FormField::Due => {
+                            if self.due_cursor > 0 {
+                                self.due_cursor -= 1;
+                            }
+                        }
+                        FormField::Priority => {
+                            // Priority doesn't use cursor
+                        }
+                    }
+                }
+            }
+            Action::MoveRight => {
+                if self.is_editing {
+                    match self.active_field {
+                        FormField::Description => {
+                            if self.description_cursor < self.description_input.len() {
+                                self.description_cursor += 1;
+                            }
+                        }
+                        FormField::Project => {
+                            if self.project_cursor < self.project_input.len() {
+                                self.project_cursor += 1;
+                            }
+                        }
+                        FormField::Tags => {
+                            if self.tags_cursor < self.tags_input.len() {
+                                self.tags_cursor += 1;
+                            }
+                        }
+                        FormField::Due => {
+                            if self.due_cursor < self.due_input.len() {
+                                self.due_cursor += 1;
+                            }
+                        }
+                        FormField::Priority => {
+                            // Priority doesn't use cursor
+                        }
+                    }
+                } else {
+                    // If not editing, enter editing mode
+                    self.is_editing = true;
+                }
+            }
+            Action::Space => {
+                // Handle space as a character in forms
+                if self.is_editing {
+                    match self.active_field {
+                        FormField::Description => {
+                            self.description_input.insert(self.description_cursor, ' ');
+                            self.description_cursor += 1;
+                        }
+                        FormField::Project => {
+                            self.project_input.insert(self.project_cursor, ' ');
+                            self.project_cursor += 1;
+                        }
+                        FormField::Tags => {
+                            self.tags_input.insert(self.tags_cursor, ' ');
+                            self.tags_cursor += 1;
+                        }
+                        FormField::Due => {
+                            self.due_input.insert(self.due_cursor, ' ');
+                            self.due_cursor += 1;
+                        }
+                        FormField::Priority => {
+                            // Priority doesn't use text input
+                        }
                     }
                 }
             }
@@ -151,6 +284,8 @@ impl TaskForm {
             FormField::Due => FormField::Tags,
             FormField::Tags => FormField::Description,
         };
+        // Set cursor to end of text for the new field
+        self.set_cursor_to_end();
     }
 
     fn previous_field(&mut self) {
@@ -161,6 +296,28 @@ impl TaskForm {
             FormField::Due => FormField::Priority,
             FormField::Tags => FormField::Due,
         };
+        // Set cursor to end of text for the new field
+        self.set_cursor_to_end();
+    }
+    
+    fn set_cursor_to_end(&mut self) {
+        match self.active_field {
+            FormField::Description => {
+                self.description_cursor = self.description_input.len();
+            }
+            FormField::Project => {
+                self.project_cursor = self.project_input.len();
+            }
+            FormField::Tags => {
+                self.tags_cursor = self.tags_input.len();
+            }
+            FormField::Due => {
+                self.due_cursor = self.due_input.len();
+            }
+            FormField::Priority => {
+                // Priority doesn't use cursor
+            }
+        }
     }
 
     fn build_task(&self) -> Task {
@@ -208,10 +365,12 @@ impl TaskForm {
         // Clear the background
         f.render_widget(Clear, popup_area);
         
-        // Main container
+        // Main container with better visibility
         let block = Block::default()
             .title("Task Details")
+            .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
             .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
             .style(Style::default().bg(Color::Black));
         f.render_widget(block, popup_area);
 
@@ -284,20 +443,27 @@ impl TaskForm {
             matches!(self.active_field, FormField::Tags),
         );
 
-        // Instructions
+        // Instructions with enhanced cursor movement capabilities
         let instructions = Paragraph::new(vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("↑↓", Style::default().fg(Color::Yellow)),
-                Span::raw(" Navigate fields  "),
-                Span::styled("Type", Style::default().fg(Color::Yellow)),
-                Span::raw(" to edit  "),
-                Span::styled("Enter", Style::default().fg(Color::Yellow)),
-                Span::raw(" Save  "),
-                Span::styled("Esc", Style::default().fg(Color::Yellow)),
-                Span::raw(" Cancel"),
+                Span::styled("↑↓", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" Navigate fields  ", Style::default().fg(Color::White)),
+                Span::styled("←→", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+                Span::styled(" Move cursor  ", Style::default().fg(Color::White)),
+                Span::styled("Type", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" to edit  ", Style::default().fg(Color::White)),
+            ]),
+            Line::from(vec![
+                Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(" Save  ", Style::default().fg(Color::White)),
+                Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled(" Cancel  ", Style::default().fg(Color::White)),
+                Span::styled("Backspace", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(" Delete", Style::default().fg(Color::White)),
             ]),
         ])
+        .style(Style::default().bg(Color::Black))
         .alignment(Alignment::Center);
         f.render_widget(instructions, chunks[5]);
     }
@@ -305,16 +471,16 @@ impl TaskForm {
     fn render_field(&self, f: &mut Frame, area: Rect, label: &str, value: &str, is_active: bool) {
         let (style, border_color) = if is_active && self.is_editing {
             (
-                Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD),
+                Style::default().bg(Color::Black).fg(Color::Green).add_modifier(Modifier::BOLD),
                 Color::Green
             )
         } else if is_active {
             (
-                Style::default().bg(Color::DarkGray).fg(Color::White),
+                Style::default().bg(Color::Black).fg(Color::Yellow).add_modifier(Modifier::BOLD),
                 Color::Yellow
             )
         } else {
-            (Style::default(), Color::Gray)
+            (Style::default().bg(Color::Black).fg(Color::White), Color::Gray)
         };
 
         let content = format!("{} {}", label, value);
@@ -326,16 +492,27 @@ impl TaskForm {
         f.render_widget(paragraph, area);
 
         if is_active && self.is_editing {
+            let cursor_pos = self.get_cursor_position_for_field();
             let cursor_area = Rect {
-                x: area.x + label.len() as u16 + 1 + value.len() as u16 + 1, // +1 for border
+                x: area.x + label.len() as u16 + 1 + cursor_pos as u16 + 1, // Position cursor at cursor_pos
                 y: area.y + 1, // +1 for border
                 width: 1,
                 height: 1,
             };
             f.render_widget(
-                Paragraph::new("█").style(Style::default().fg(Color::Yellow)),
+                Paragraph::new("█").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 cursor_area,
             );
+        }
+    }
+    
+    fn get_cursor_position_for_field(&self) -> usize {
+        match self.active_field {
+            FormField::Description => self.description_cursor,
+            FormField::Project => self.project_cursor,
+            FormField::Tags => self.tags_cursor,
+            FormField::Due => self.due_cursor,
+            FormField::Priority => 0, // Priority doesn't use cursor
         }
     }
 
