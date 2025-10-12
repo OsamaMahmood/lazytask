@@ -105,9 +105,17 @@ impl TaskFilter {
             }
         }
 
-        // Description contains filter
+        // Description contains filter (searches description, project, and tags)
         if let Some(text) = &self.description_contains {
-            if !task.description.to_lowercase().contains(&text.to_lowercase()) {
+            let search_text = text.to_lowercase();
+            let matches_description = task.description.to_lowercase().contains(&search_text);
+            let matches_project = task.project.as_ref()
+                .map(|p| p.to_lowercase().contains(&search_text))
+                .unwrap_or(false);
+            let matches_tags = task.tags.iter()
+                .any(|tag| tag.to_lowercase().contains(&search_text));
+            
+            if !matches_description && !matches_project && !matches_tags {
                 return false;
             }
         }
