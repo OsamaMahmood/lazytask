@@ -25,6 +25,8 @@ pub enum Action {
     Character(char),
     Backspace,
     None,
+    Space,
+    Tab,
 }
 
 pub struct InputHandler {
@@ -58,7 +60,12 @@ impl InputHandler {
                 KeyCode::Enter => Action::Select,
                 KeyCode::Up => Action::MoveUp,
                 KeyCode::Down => Action::MoveDown,
+                KeyCode::Left => Action::MoveLeft,   // Enable cursor movement in forms
+                KeyCode::Right => Action::MoveRight, // Enable cursor movement in forms
+                KeyCode::Tab => Action::Tab, // Tab for section navigation in filters
+                KeyCode::BackTab => Action::MoveUp, // Shift+Tab moves to previous field (same as up arrow)
                 KeyCode::Backspace => Action::Backspace,
+                KeyCode::Char(' ') => Action::Space, // Space for toggling filters
                 KeyCode::Char(c) => Action::Character(c),
                 _ => Action::None,
             }
