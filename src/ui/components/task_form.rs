@@ -65,7 +65,7 @@ impl TaskForm {
             Some(Priority::Low) => 3,
         };
 
-        let tags_str = task.tags.join(" ");
+        let tags_str = task.tags.join(", ");
         let due_str = task.due
             .map(|d| d.format("%Y-%m-%d").to_string())
             .unwrap_or_default();
@@ -336,10 +336,17 @@ impl TaskForm {
             _ => None,
         };
 
-        task.tags = if self.tags_input.is_empty() {
+        task.tags = if self.tags_input.trim().is_empty() {
             Vec::new()
         } else {
-            self.tags_input.split_whitespace().map(|s| s.to_string()).collect()
+            // Handle both space-separated and comma-separated tags
+            // Split on both whitespace and commas, then filter out empty strings
+            self.tags_input
+                .split(|c: char| c == ',' || c.is_whitespace())
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect()
         };
 
         // Parse due date from due_input string
@@ -359,8 +366,18 @@ impl TaskForm {
     }
 
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        // Create centered dialog
-        let popup_area = Self::centered_rect(60, 70, area);
+        // Responsive dialog sizing based on terminal size
+        let (width_pct, height_pct) = if area.width < 80 {
+            (90, 80)  // Nearly full screen on very narrow terminals
+        } else if area.width < 120 {
+            (80, 75)  // Large dialog on narrow terminals
+        } else if area.width < 180 {
+            (70, 70)  // Medium dialog on medium terminals
+        } else {
+            (60, 65)  // Standard dialog on wide terminals
+        };
+        
+        let popup_area = Self::centered_rect(width_pct, height_pct, area);
         
         // Clear the background
         f.render_widget(Clear, popup_area);
@@ -380,15 +397,28 @@ impl TaskForm {
             horizontal: 2,
         });
 
+        // Responsive field sizing based on available space
+        let field_height = if inner_area.height < 15 {
+            2  // Compact fields for very small dialogs
+        } else {
+            3  // Standard field height
+        };
+
+        let instruction_space = if inner_area.height < 20 {
+            Constraint::Min(1)     // Minimal instruction area
+        } else {
+            Constraint::Min(3)     // Standard instruction area
+        };
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Description
-                Constraint::Length(3), // Project
-                Constraint::Length(3), // Priority
-                Constraint::Length(3), // Due
-                Constraint::Length(3), // Tags
-                Constraint::Min(2),    // Instructions
+                Constraint::Length(field_height), // Description
+                Constraint::Length(field_height), // Project
+                Constraint::Length(field_height), // Priority
+                Constraint::Length(field_height), // Due
+                Constraint::Length(field_height), // Tags
+                instruction_space,                 // Instructions (responsive)
             ])
             .split(inner_area);
 

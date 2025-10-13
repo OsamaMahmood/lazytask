@@ -142,8 +142,13 @@ impl TaskwarriorCLI {
         
         for (key, value) in attributes {
             if value.is_empty() {
-                // For tags and other attributes without values (like +tag)
-                args.push(key.to_string());
+                // Special case: for clearing attributes like "tags:", "project:", etc.
+                if *key == "tags" || *key == "project" || *key == "priority" || *key == "due" {
+                    args.push(format!("{}:", key));
+                } else {
+                    // For tags without values (like +tag)
+                    args.push(key.to_string());
+                }
             } else {
                 // For attributes with values (like project:name, priority:H)
                 args.push(format!("{}:{}", key, value));
@@ -151,6 +156,7 @@ impl TaskwarriorCLI {
         }
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        
         self.execute_command(&args_refs)?;
         Ok(())
     }
@@ -163,7 +169,8 @@ impl TaskwarriorCLI {
 
     pub async fn delete_task(&self, id: u32) -> Result<()> {
         let id_str = id.to_string();
-        self.execute_command(&[&id_str, "delete"])?;
+        // Use rc.confirmation=no to avoid interactive confirmation prompt
+        self.execute_command(&[&id_str, "delete", "rc.confirmation=no"])?;
         Ok(())
     }
 
@@ -179,12 +186,24 @@ impl TaskwarriorCLI {
         let output = cmd.output()
             .with_context(|| format!("Failed to execute task command: {:?}", args))?;
 
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
         if !output.status.success() {
-            let error = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Task command failed: {}", error));
+            // Provide detailed error information
+            let error_msg = if stderr.is_empty() {
+                if stdout.is_empty() {
+                    format!("Task command failed with no output. Command: task {}", args.join(" "))
+                } else {
+                    format!("Task command failed. Output: {}", stdout)
+                }
+            } else {
+                format!("Task command failed: {}", stderr)
+            };
+            return Err(anyhow::anyhow!("{}", error_msg));
         }
 
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        Ok(stdout)
     }
 }
 
