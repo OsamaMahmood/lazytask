@@ -310,9 +310,9 @@ impl AppUI {
         let (left_pct, right_pct) = if terminal_width < 100 {
             (50, 50)  // Equal split for narrow terminals
         } else if terminal_width < 150 {
-            (45, 55)  // Slightly favor detail panel for medium terminals  
+            (50, 50)  // Slightly favor detail panel for medium terminals  
         } else {
-            (40, 60)  // More space for detail panel on wide terminals
+            (50, 50)  // More space for detail panel on wide terminals
         };
 
         let top_chunks = Layout::default()
