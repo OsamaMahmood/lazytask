@@ -41,6 +41,8 @@ pub struct FilterBarWidget {
     pub description_input: String,
     pub status_filter_type: StatusFilterType,
     pub is_visible: bool,
+    pub available_projects: Vec<String>,
+    pub available_tags: Vec<String>,
 }
 
 impl FilterBarWidget {
@@ -54,7 +56,14 @@ impl FilterBarWidget {
             description_input: String::new(),
             status_filter_type: StatusFilterType::Pending, // Default to pending (matches TaskFilter::default())
             is_visible: false,
+            available_projects: Vec::new(),
+            available_tags: Vec::new(),
         }
+    }
+
+    pub fn update_available_options(&mut self, projects: Vec<String>, tags: Vec<String>) {
+        self.available_projects = projects;
+        self.available_tags = tags;
     }
 
     pub fn toggle_visibility(&mut self) {
@@ -307,11 +316,11 @@ impl FilterBarWidget {
         // Priority field
         self.render_priority_field(f, chunks[1]);
         
-        // Project field
-        self.render_text_field(f, chunks[2], "Project", &self.project_input, FilterField::Project);
+        // Project field with hints
+        self.render_project_field(f, chunks[2]);
         
-        // Tags field
-        self.render_text_field(f, chunks[3], "Tags", &self.tags_input, FilterField::Tags);
+        // Tags field with hints
+        self.render_tags_field(f, chunks[3]);
         
         // Description field
         self.render_text_field(f, chunks[4], "Description", &self.description_input, FilterField::Description);
@@ -365,6 +374,88 @@ impl FilterBarWidget {
             .block(Block::default().borders(Borders::ALL))
             .style(style);
 
+        f.render_widget(paragraph, area);
+    }
+
+    fn render_project_field(&self, f: &mut Frame, area: Rect) {
+        let is_active = self.active_field == FilterField::Project;
+        let style = if is_active && self.is_editing {
+            Style::default().bg(Color::Blue).fg(Color::White)
+        } else if is_active {
+            Style::default().bg(Color::DarkGray).fg(Color::White)
+        } else {
+            Style::default()
+        };
+
+        let title = if is_active && self.is_editing {
+            "Project (editing)".to_string()
+        } else {
+            "Project".to_string()
+        };
+
+        // Show current input and available projects as hint
+        let mut text_lines = vec![self.project_input.clone()];
+        
+        if is_active && !self.available_projects.is_empty() {
+            text_lines.push("".to_string()); // Empty line
+            text_lines.push("Available:".to_string());
+            
+            // Show first few available projects as hints
+            let max_show = 3;
+            for project in self.available_projects.iter().take(max_show) {
+                text_lines.push(format!("• {}", project));
+            }
+            
+            if self.available_projects.len() > max_show {
+                text_lines.push(format!("... and {} more", self.available_projects.len() - max_show));
+            }
+        }
+
+        let text = text_lines.join("\n");
+        let paragraph = Paragraph::new(text)
+            .block(Block::default().title(title).borders(Borders::ALL))
+            .style(style);
+        f.render_widget(paragraph, area);
+    }
+
+    fn render_tags_field(&self, f: &mut Frame, area: Rect) {
+        let is_active = self.active_field == FilterField::Tags;
+        let style = if is_active && self.is_editing {
+            Style::default().bg(Color::Blue).fg(Color::White)
+        } else if is_active {
+            Style::default().bg(Color::DarkGray).fg(Color::White)
+        } else {
+            Style::default()
+        };
+
+        let title = if is_active && self.is_editing {
+            "Tags (editing)".to_string()
+        } else {
+            "Tags".to_string()
+        };
+
+        // Show current input and available tags as hint
+        let mut text_lines = vec![self.tags_input.clone()];
+        
+        if is_active && !self.available_tags.is_empty() {
+            text_lines.push("".to_string()); // Empty line
+            text_lines.push("Available:".to_string());
+            
+            // Show first few available tags as hints
+            let max_show = 3;
+            for tag in self.available_tags.iter().take(max_show) {
+                text_lines.push(format!("• {}", tag));
+            }
+            
+            if self.available_tags.len() > max_show {
+                text_lines.push(format!("... and {} more", self.available_tags.len() - max_show));
+            }
+        }
+
+        let text = text_lines.join("\n");
+        let paragraph = Paragraph::new(text)
+            .block(Block::default().title(title).borders(Borders::ALL))
+            .style(style);
         f.render_widget(paragraph, area);
     }
 

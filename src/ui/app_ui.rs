@@ -109,25 +109,44 @@ impl AppUI {
     }
 
     fn update_available_filters(&mut self) {
-        // Extract unique projects
+        // Extract unique projects from pending/active tasks only (matching `task projects`)
         let mut projects: Vec<String> = self.tasks
             .iter()
+            .filter(|task| {
+                // Only include projects from pending, waiting, or recurring tasks
+                matches!(task.status, 
+                    crate::data::models::TaskStatus::Pending | 
+                    crate::data::models::TaskStatus::Waiting |
+                    crate::data::models::TaskStatus::Recurring
+                )
+            })
             .filter_map(|task| task.project.as_ref())
             .cloned()
             .collect();
         projects.sort();
         projects.dedup();
-        self.available_projects = projects;
+        self.available_projects = projects.clone();
 
-        // Extract unique tags
+        // Extract unique tags from pending/active tasks only (matching `task tags`)
         let mut tags: Vec<String> = self.tasks
             .iter()
+            .filter(|task| {
+                // Only include tags from pending, waiting, or recurring tasks
+                matches!(task.status, 
+                    crate::data::models::TaskStatus::Pending | 
+                    crate::data::models::TaskStatus::Waiting |
+                    crate::data::models::TaskStatus::Recurring
+                )
+            })
             .flat_map(|task| task.tags.iter())
             .cloned()
             .collect();
         tags.sort();
         tags.dedup();
-        self.available_tags = tags;
+        self.available_tags = tags.clone();
+
+        // Update filter bar widget with current projects and tags
+        self.filter_bar_widget.update_available_options(projects, tags);
     }
 
     fn apply_filters(&mut self) {
@@ -290,11 +309,11 @@ impl AppUI {
         // Responsive content layout based on available space
         let available_height = main_chunks[1].height;
         let filter_height = if available_height < 20 {
-            6  // Minimal filter area for small screens
+            9   // Compact filter area for small screens - proper scrolling handles overflow
         } else if available_height < 30 {
-            7  // Reduced filter area for medium screens
+            12  // Medium filter area for medium screens - proper scrolling handles overflow
         } else {
-            8  // Full filter area for large screens
+            15  // Larger filter area for large screens - proper scrolling handles overflow
         };
 
         let main_content_chunks = Layout::default()
@@ -720,22 +739,33 @@ impl AppUI {
             Line::from(""),
         ];
 
-        // Simplified scrolling: show all projects if they fit, otherwise show from selected item
-        let max_visible_items = (area.height as usize).saturating_sub(4).max(1); // Account for borders + header
-        let scroll_offset = if self.available_projects.len() <= max_visible_items {
-            // All projects fit, no scrolling needed
+        // Robust scrolling: calculate viewport accounting for scroll indicators
+        let base_visible_items = (area.height as usize).saturating_sub(4).max(1); // Account for borders + header + selection display
+        let total_items = self.available_projects.len();
+        
+        // Reserve space for scroll indicators if we need scrolling
+        let needs_scrolling = total_items > base_visible_items;
+        let scroll_indicator_space = if needs_scrolling { 2 } else { 0 }; // Reserve 2 lines for ↑ and ↓ indicators
+        let max_visible_items = base_visible_items.saturating_sub(scroll_indicator_space).max(1);
+        
+        let scroll_offset = if total_items <= max_visible_items {
+            // All items fit, no scrolling needed
             0
-        } else if self.active_filter_section == FilterSection::Project {
-            // Center the selected item in the visible area
-            if self.project_selection_index < max_visible_items / 2 {
-                0
-            } else if self.project_selection_index >= self.available_projects.len() - max_visible_items / 2 {
-                self.available_projects.len().saturating_sub(max_visible_items)
-            } else {
-                self.project_selection_index.saturating_sub(max_visible_items / 2)
-            }
         } else {
-            0
+            // Calculate scroll offset to keep selected item visible
+            let selected_index = self.project_selection_index.min(total_items.saturating_sub(1));
+            
+            // Ensure selected item is always visible in the viewport
+            if selected_index < max_visible_items / 2 {
+                // Near the top of list - show from beginning
+                0
+            } else if selected_index >= total_items - (max_visible_items / 2) {
+                // Near the bottom of list - show last page
+                total_items.saturating_sub(max_visible_items)
+            } else {
+                // Middle of list - center the selected item
+                selected_index.saturating_sub(max_visible_items / 2)
+            }
         };
 
         let visible_projects: Vec<_> = self.available_projects
@@ -745,10 +775,13 @@ impl AppUI {
             .take(max_visible_items)
             .collect();
 
-        // Show scroll indicators if needed
+        // Enhanced scroll indicators showing position
         if scroll_offset > 0 {
             project_text.push(Line::from(vec![
-                Span::styled("↑ More above...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    format!("↑ {} more above", scroll_offset),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC)
+                ),
             ]));
         }
 
@@ -771,9 +804,10 @@ impl AppUI {
                 Style::default().fg(Color::White)
             };
             
-            // Truncate long project names
-            let display_name = if project.len() > 15 {
-                format!("{}...", &project[..12])
+            // Truncate long project names dynamically based on panel width
+            let max_chars = (area.width as usize).saturating_sub(6).max(8);
+            let display_name = if project.len() > max_chars {
+                format!("{}...", &project[..max_chars.saturating_sub(3)])
             } else {
                 project.to_string()
             };
@@ -784,10 +818,14 @@ impl AppUI {
             ]));
         }
 
-        // Show scroll indicator for more below
-        if scroll_offset + visible_projects.len() < self.available_projects.len() {
+        // Enhanced scroll indicators showing remaining items
+        let items_below = self.available_projects.len().saturating_sub(scroll_offset + visible_projects.len());
+        if items_below > 0 {
             project_text.push(Line::from(vec![
-                Span::styled("↓ More below...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    format!("↓ {} more below", items_below),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC)
+                ),
             ]));
         }
 
@@ -832,22 +870,33 @@ impl AppUI {
             Line::from(""),
         ];
 
-        // Simplified scrolling: show all tags if they fit, otherwise show from selected item
-        let max_visible_items = (area.height as usize).saturating_sub(4).max(1); // Account for borders + header
-        let scroll_offset = if self.available_tags.len() <= max_visible_items {
-            // All tags fit, no scrolling needed
+        // Robust scrolling: calculate viewport accounting for scroll indicators
+        let base_visible_items = (area.height as usize).saturating_sub(4).max(1); // Account for borders + header + selection display
+        let total_items = self.available_tags.len();
+        
+        // Reserve space for scroll indicators if we need scrolling
+        let needs_scrolling = total_items > base_visible_items;
+        let scroll_indicator_space = if needs_scrolling { 2 } else { 0 }; // Reserve 2 lines for ↑ and ↓ indicators
+        let max_visible_items = base_visible_items.saturating_sub(scroll_indicator_space).max(1);
+        
+        let scroll_offset = if total_items <= max_visible_items {
+            // All items fit, no scrolling needed
             0
-        } else if self.active_filter_section == FilterSection::Tags {
-            // Center the selected item in the visible area
-            if self.tag_selection_index < max_visible_items / 2 {
-                0
-            } else if self.tag_selection_index >= self.available_tags.len() - max_visible_items / 2 {
-                self.available_tags.len().saturating_sub(max_visible_items)
-            } else {
-                self.tag_selection_index.saturating_sub(max_visible_items / 2)
-            }
         } else {
-            0
+            // Calculate scroll offset to keep selected item visible
+            let selected_index = self.tag_selection_index.min(total_items.saturating_sub(1));
+            
+            // Ensure selected item is always visible in the viewport
+            if selected_index < max_visible_items / 2 {
+                // Near the top of list - show from beginning
+                0
+            } else if selected_index >= total_items - (max_visible_items / 2) {
+                // Near the bottom of list - show last page
+                total_items.saturating_sub(max_visible_items)
+            } else {
+                // Middle of list - center the selected item
+                selected_index.saturating_sub(max_visible_items / 2)
+            }
         };
 
         let visible_tags: Vec<_> = self.available_tags
@@ -857,10 +906,13 @@ impl AppUI {
             .take(max_visible_items)
             .collect();
 
-        // Show scroll indicators if needed
+        // Enhanced scroll indicators showing position
         if scroll_offset > 0 {
             tag_text.push(Line::from(vec![
-                Span::styled("↑ More above...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    format!("↑ {} more above", scroll_offset),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC)
+                ),
             ]));
         }
 
@@ -882,9 +934,10 @@ impl AppUI {
                 Style::default().fg(Color::White)
             };
             
-            // Truncate long tag names
-            let display_name = if tag.len() > 15 {
-                format!("{}...", &tag[..12])
+            // Truncate long tag names dynamically based on panel width
+            let max_chars = (area.width as usize).saturating_sub(6).max(6);
+            let display_name = if tag.len() > max_chars {
+                format!("{}...", &tag[..max_chars.saturating_sub(3)])
             } else {
                 tag.to_string()
             };
@@ -895,10 +948,14 @@ impl AppUI {
             ]));
         }
 
-        // Show scroll indicator for more below
-        if scroll_offset + visible_tags.len() < self.available_tags.len() {
+        // Enhanced scroll indicators showing remaining items
+        let items_below = self.available_tags.len().saturating_sub(scroll_offset + visible_tags.len());
+        if items_below > 0 {
             tag_text.push(Line::from(vec![
-                Span::styled("↓ More below...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    format!("↓ {} more below", items_below),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC)
+                ),
             ]));
         }
 
