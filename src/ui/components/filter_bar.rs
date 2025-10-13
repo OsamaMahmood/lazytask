@@ -13,6 +13,17 @@ use crate::data::models::{Priority, TaskStatus};
 use crate::handlers::input::Action;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StatusFilterType {
+    All,
+    Pending,
+    Completed,
+    Active,    // Special: pending + started
+    Overdue,   // Special: pending + past due
+    Waiting,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FilterField {
     Project,
     Priority,
@@ -28,6 +39,7 @@ pub struct FilterBarWidget {
     pub project_input: String,
     pub tags_input: String,
     pub description_input: String,
+    pub status_filter_type: StatusFilterType,
     pub is_visible: bool,
 }
 
@@ -40,6 +52,7 @@ impl FilterBarWidget {
             project_input: String::new(),
             tags_input: String::new(),
             description_input: String::new(),
+            status_filter_type: StatusFilterType::Pending, // Default to pending (matches TaskFilter::default())
             is_visible: false,
         }
     }
@@ -101,6 +114,15 @@ impl FilterBarWidget {
                 }
                 return Ok(true);
             }
+            Action::Space => {
+                if matches!(self.active_field, FilterField::Status) {
+                    // Space cycles through status filter types
+                    self.cycle_status_filter();
+                    self.apply_status_filter();
+                    return Ok(true);
+                }
+                return Ok(false);
+            }
             Action::Backspace => {
                 if self.is_editing {
                     self.handle_backspace();
@@ -147,14 +169,21 @@ impl FilterBarWidget {
             }
             FilterField::Status => {
                 match c.to_ascii_lowercase() {
-                    'p' => self.filter.status = Some(TaskStatus::Pending),
-                    'c' => self.filter.status = Some(TaskStatus::Completed),
-                    'd' => self.filter.status = Some(TaskStatus::Deleted),
-                    'w' => self.filter.status = Some(TaskStatus::Waiting),
-                    'r' => self.filter.status = Some(TaskStatus::Recurring),
-                    'a' => self.filter.status = None, // All statuses
+                    'a' => {
+                        if self.status_filter_type == StatusFilterType::All {
+                            self.status_filter_type = StatusFilterType::Active;
+                        } else {
+                            self.status_filter_type = StatusFilterType::All;
+                        }
+                    }
+                    'p' => self.status_filter_type = StatusFilterType::Pending,
+                    'c' => self.status_filter_type = StatusFilterType::Completed,
+                    'd' => self.status_filter_type = StatusFilterType::Deleted,
+                    'w' => self.status_filter_type = StatusFilterType::Waiting,
+                    'o' => self.status_filter_type = StatusFilterType::Overdue,
                     _ => {}
                 }
+                self.apply_status_filter();
             }
         }
     }
@@ -165,7 +194,56 @@ impl FilterBarWidget {
             FilterField::Tags => { self.tags_input.pop(); }
             FilterField::Description => { self.description_input.pop(); }
             FilterField::Priority => self.filter.priority = None,
-            FilterField::Status => self.filter.status = None,
+            FilterField::Status => {
+                self.status_filter_type = StatusFilterType::All;
+                self.apply_status_filter();
+            }
+        }
+    }
+
+    fn cycle_status_filter(&mut self) {
+        self.status_filter_type = match self.status_filter_type {
+            StatusFilterType::All => StatusFilterType::Pending,
+            StatusFilterType::Pending => StatusFilterType::Active,
+            StatusFilterType::Active => StatusFilterType::Overdue,
+            StatusFilterType::Overdue => StatusFilterType::Completed,
+            StatusFilterType::Completed => StatusFilterType::Waiting,
+            StatusFilterType::Waiting => StatusFilterType::Deleted,
+            StatusFilterType::Deleted => StatusFilterType::All,
+        };
+    }
+
+    fn apply_status_filter(&mut self) {
+        // Reset all status-related filters first
+        self.filter.status = None;
+        self.filter.is_active = None;
+        self.filter.is_overdue = None;
+
+        // Apply the selected status filter type
+        match self.status_filter_type {
+            StatusFilterType::All => {
+                // No filters - show all tasks
+            }
+            StatusFilterType::Pending => {
+                self.filter.status = Some(TaskStatus::Pending);
+            }
+            StatusFilterType::Completed => {
+                self.filter.status = Some(TaskStatus::Completed);
+            }
+            StatusFilterType::Active => {
+                self.filter.status = Some(TaskStatus::Pending);
+                self.filter.is_active = Some(true);
+            }
+            StatusFilterType::Overdue => {
+                self.filter.status = Some(TaskStatus::Pending);
+                self.filter.is_overdue = Some(true);
+            }
+            StatusFilterType::Waiting => {
+                self.filter.status = Some(TaskStatus::Waiting);
+            }
+            StatusFilterType::Deleted => {
+                self.filter.status = Some(TaskStatus::Deleted);
+            }
         }
     }
 
@@ -204,6 +282,7 @@ impl FilterBarWidget {
         self.project_input.clear();
         self.tags_input.clear();
         self.description_input.clear();
+        self.status_filter_type = StatusFilterType::Pending; // Reset to default
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect) {
@@ -239,13 +318,14 @@ impl FilterBarWidget {
     }
 
     fn render_status_field(&self, f: &mut Frame, area: Rect) {
-        let status_text = match self.filter.status {
-            Some(TaskStatus::Pending) => "Pending",
-            Some(TaskStatus::Completed) => "Completed", 
-            Some(TaskStatus::Deleted) => "Deleted",
-            Some(TaskStatus::Waiting) => "Waiting",
-            Some(TaskStatus::Recurring) => "Recurring",
-            None => "All",
+        let status_text = match self.status_filter_type {
+            StatusFilterType::All => "All",
+            StatusFilterType::Pending => "Pending",
+            StatusFilterType::Completed => "Completed",
+            StatusFilterType::Active => "Active",
+            StatusFilterType::Overdue => "Overdue",
+            StatusFilterType::Waiting => "Waiting",
+            StatusFilterType::Deleted => "Deleted",
         };
 
         let is_active = matches!(self.active_field, FilterField::Status);
