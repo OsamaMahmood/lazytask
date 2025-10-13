@@ -129,6 +129,26 @@ impl Task {
             .and_then(|v| v.as_str())
             .and_then(|s| Self::parse_taskwarrior_date(s));
 
+        let start = json.get("start")
+            .and_then(|v| v.as_str())
+            .and_then(|s| Self::parse_taskwarrior_date(s));
+
+        let end = json.get("end")
+            .and_then(|v| v.as_str())
+            .and_then(|s| Self::parse_taskwarrior_date(s));
+
+        let wait = json.get("wait")
+            .and_then(|v| v.as_str())
+            .and_then(|s| Self::parse_taskwarrior_date(s));
+
+        let scheduled = json.get("scheduled")
+            .and_then(|v| v.as_str())
+            .and_then(|s| Self::parse_taskwarrior_date(s));
+
+        let until = json.get("until")
+            .and_then(|v| v.as_str())
+            .and_then(|s| Self::parse_taskwarrior_date(s));
+
         let tags = json.get("tags")
             .and_then(|v| v.as_array())
             .map(|arr| arr.iter()
@@ -158,11 +178,11 @@ impl Task {
             due,
             entry,
             modified,
-            end: None,
-            start: None,
-            wait: None,
-            scheduled: None,
-            until: None,
+            end,
+            start,
+            wait,
+            scheduled,
+            until,
             depends: Vec::new(),
             tags,
             annotations,
