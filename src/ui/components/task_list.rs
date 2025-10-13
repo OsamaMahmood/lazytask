@@ -111,7 +111,8 @@ impl TaskListWidget {
             .map(|task| formatter.format_task_row(task))
             .collect();
 
-        let column_widths = formatter.column_widths();
+        // Use responsive column widths based on terminal size
+        let column_widths = formatter.responsive_column_widths(area.width);
         let task_count = self.tasks.len();
         let title = format!(" Tasks ({}) ", task_count);
         
@@ -150,15 +151,45 @@ impl TaskTableFormatter {
         ["ID", "Project", "Priority", "Due", "Description"]
     }
     
-    // Define column widths - optimized for clean, readable layout
-    fn column_widths(&self) -> [Constraint; 5] {
-        [
-            Constraint::Length(4),   // ID - minimal
-            Constraint::Length(15),  // Project - readable
-            Constraint::Length(10),  // Priority - full word display
-            Constraint::Length(12),  // Due - readable date
-            Constraint::Min(40),     // Description - maximum space
-        ]
+    // Define responsive column widths that adapt to terminal size
+    fn responsive_column_widths(&self, terminal_width: u16) -> Vec<Constraint> {
+        if terminal_width < 80 {
+            // Very narrow terminal - minimize columns, focus on description
+            vec![
+                Constraint::Length(3),   // ID - minimal
+                Constraint::Length(8),   // Project - abbreviated
+                Constraint::Length(4),   // Priority - single char (H/M/L)
+                Constraint::Length(8),   // Due - short date
+                Constraint::Min(20),     // Description - rest of space
+            ]
+        } else if terminal_width < 120 {
+            // Narrow terminal - compact but readable
+            vec![
+                Constraint::Length(4),   // ID
+                Constraint::Length(12),  // Project
+                Constraint::Length(8),   // Priority
+                Constraint::Length(10),  // Due
+                Constraint::Min(30),     // Description - grows with available space
+            ]
+        } else if terminal_width < 160 {
+            // Medium terminal - balanced layout
+            vec![
+                Constraint::Length(4),   // ID
+                Constraint::Length(15),  // Project
+                Constraint::Length(10),  // Priority
+                Constraint::Length(12),  // Due
+                Constraint::Min(40),     // Description
+            ]
+        } else {
+            // Wide terminal - generous spacing
+            vec![
+                Constraint::Length(5),   // ID
+                Constraint::Length(20),  // Project - more space
+                Constraint::Length(10),  // Priority
+                Constraint::Length(14),  // Due - full datetime if needed
+                Constraint::Min(50),     // Description - maximum space
+            ]
+        }
     }
     
     // Format a complete task row with intelligent row-level color coding
