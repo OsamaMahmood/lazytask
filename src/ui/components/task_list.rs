@@ -30,6 +30,32 @@ impl TaskListWidget {
         }
     }
 
+    pub fn set_tasks_with_preserved_selection(&mut self, tasks: Vec<Task>, preserve_uuid: Option<&str>) {
+        self.tasks = tasks;
+        
+        if self.tasks.is_empty() {
+            self.state.select(None);
+            return;
+        }
+
+        // If we have a UUID to preserve, try to find and select that task
+        if let Some(uuid) = preserve_uuid {
+            for (index, task) in self.tasks.iter().enumerate() {
+                if task.uuid == uuid {
+                    self.state.select(Some(index));
+                    return;
+                }
+            }
+        }
+        
+        // Fallback to first task if UUID not found or not provided
+        self.state.select(Some(0));
+    }
+
+    pub fn selected_task_uuid(&self) -> Option<String> {
+        self.selected_task().map(|task| task.uuid.clone())
+    }
+
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
