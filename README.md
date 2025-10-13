@@ -2,6 +2,9 @@
 
 A modern, responsive Terminal User Interface (TUI) for Taskwarrior, built with Rust and Ratatui. LazyTask provides an intuitive, keyboard-driven interface similar to popular TUIs like Lazygit and Yazi.
 
+<img width="1561" height="977" alt="image" src="https://github.com/user-attachments/assets/0441da8f-e2ea-483d-ba4f-2ec61ad75fd9" />
+<img width="1561" height="977" alt="image" src="https://github.com/user-attachments/assets/761e174a-fe67-4987-aab4-3d5821b42b73" />
+
 ## Features
 
 LazyTask is now a complete, modern Terminal User Interface for Taskwarrior with professional-grade features and polish.
