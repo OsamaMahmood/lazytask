@@ -67,23 +67,39 @@ impl App {
         // Initialize with tasks
         self.ui.load_tasks(&self.taskwarrior).await?;
 
-        loop {
-            // Draw UI
-            self.terminal.draw(|f| self.ui.draw(f))?;
+        // Flag to track when we need to redraw
+        let mut needs_redraw = true;
 
-            // Handle input
-            if event::poll(Duration::from_millis(100))? {
-                if let Event::Key(key) = event::read()? {
-                    let in_form = self.ui.has_active_form();
-                    let action = self.input_handler.handle_key_event_with_context(key, in_form);
-                    match action {
-                        crate::handlers::input::Action::Quit => {
-                            self.should_quit = true;
+        loop {
+            // Only draw if needed
+            if needs_redraw {
+                self.terminal.draw(|f| self.ui.draw(f))?;
+                needs_redraw = false;
+            }
+
+            // Handle input and resize events - block for a bit longer to reduce CPU usage
+            if event::poll(Duration::from_millis(250))? {
+                match event::read()? {
+                    Event::Key(key) => {
+                        let in_form = self.ui.has_active_form();
+                        let action = self.input_handler.handle_key_event_with_context(key, in_form);
+                        match action {
+                            crate::handlers::input::Action::Quit => {
+                                self.should_quit = true;
+                            }
+                            _ => {
+                                // Handle other actions and trigger redraw
+                                self.ui.handle_action(action, &self.taskwarrior).await?;
+                                needs_redraw = true;
+                            }
                         }
-                        _ => {
-                            // Handle other actions
-                            self.ui.handle_action(action, &self.taskwarrior).await?;
-                        }
+                    }
+                    Event::Resize(_, _) => {
+                        // Terminal was resized - trigger immediate redraw
+                        needs_redraw = true;
+                    }
+                    _ => {
+                        // Ignore other events (mouse, focus, etc.)
                     }
                 }
             }
