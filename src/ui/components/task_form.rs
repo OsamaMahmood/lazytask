@@ -1,7 +1,7 @@
 // Task form dialog for adding/editing tasks
 
 use anyhow::Result;
-use chrono::{NaiveDate, TimeZone, Utc};
+use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
@@ -349,20 +349,141 @@ impl TaskForm {
                 .collect()
         };
 
-        // Parse due date from due_input string
+        // Parse due date from due_input string using Taskwarrior date formats
         if !self.due_input.trim().is_empty() {
-            // Try to parse various date formats
-            if let Ok(parsed_date) = NaiveDate::parse_from_str(&self.due_input, "%Y-%m-%d") {
-                task.due = Some(Utc.from_utc_datetime(&parsed_date.and_hms_opt(0, 0, 0).unwrap()));
-            } else if let Ok(parsed_date) = NaiveDate::parse_from_str(&self.due_input, "%m/%d/%Y") {
-                task.due = Some(Utc.from_utc_datetime(&parsed_date.and_hms_opt(0, 0, 0).unwrap()));
-            } else if let Ok(parsed_date) = NaiveDate::parse_from_str(&self.due_input, "%d-%m-%Y") {
-                task.due = Some(Utc.from_utc_datetime(&parsed_date.and_hms_opt(0, 0, 0).unwrap()));
+            if let Some(parsed_date) = Self::parse_taskwarrior_date(&self.due_input) {
+                task.due = Some(parsed_date);
             }
             // If parsing fails, due remains None (could add error handling here)
         }
 
         task
+    }
+    
+    /// Parse Taskwarrior date formats
+    /// Supports: today, tomorrow, eow, eom, eoy, sow, som, soy, 1d, 2w, 3mo, 1y, YYYY-MM-DD, MM/DD/YYYY, etc.
+    fn parse_taskwarrior_date(input: &str) -> Option<chrono::DateTime<Utc>> {
+        let input = input.trim().to_lowercase();
+        let now = Utc::now();
+        let today = now.date_naive();
+        
+        match input.as_str() {
+            // Relative dates
+            "today" => {
+                return Some(Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0)?));
+            }
+            "tomorrow" | "tmr" => {
+                let tomorrow = today + Duration::days(1);
+                return Some(Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0)?));
+            }
+            "yesterday" => {
+                let yesterday = today - Duration::days(1);
+                return Some(Utc.from_utc_datetime(&yesterday.and_hms_opt(0, 0, 0)?));
+            }
+            
+            // End of periods
+            "eod" => { // End of day (23:59:59 today)
+                return Some(Utc.from_utc_datetime(&today.and_hms_opt(23, 59, 59)?));
+            }
+            "eow" => { // End of week (Sunday)
+                let days_until_sunday = (7 - today.weekday().number_from_monday()) % 7;
+                let eow = if days_until_sunday == 0 {
+                    today + Duration::days(7)
+                } else {
+                    today + Duration::days(days_until_sunday as i64)
+                };
+                return Some(Utc.from_utc_datetime(&eow.and_hms_opt(23, 59, 59)?));
+            }
+            "eom" => { // End of month
+                let year = today.year();
+                let month = today.month();
+                let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
+                    .unwrap_or_else(|| NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
+                    .pred_opt()?;
+                return Some(Utc.from_utc_datetime(&last_day.and_hms_opt(23, 59, 59)?));
+            }
+            "eoq" => { // End of quarter
+                let year = today.year();
+                let quarter = (today.month() - 1) / 3;
+                let last_month_of_quarter = (quarter + 1) * 3;
+                let last_day = NaiveDate::from_ymd_opt(year, last_month_of_quarter + 1, 1)
+                    .unwrap_or_else(|| NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
+                    .pred_opt()?;
+                return Some(Utc.from_utc_datetime(&last_day.and_hms_opt(23, 59, 59)?));
+            }
+            "eoy" => { // End of year
+                let eoy = NaiveDate::from_ymd_opt(today.year(), 12, 31)?;
+                return Some(Utc.from_utc_datetime(&eoy.and_hms_opt(23, 59, 59)?));
+            }
+            
+            // Start of periods
+            "sow" | "bow" => { // Start/beginning of week (Monday)
+                let days_since_monday = today.weekday().number_from_monday() - 1;
+                let sow = today - Duration::days(days_since_monday as i64);
+                return Some(Utc.from_utc_datetime(&sow.and_hms_opt(0, 0, 0)?));
+            }
+            "som" | "bom" => { // Start/beginning of month
+                let som = NaiveDate::from_ymd_opt(today.year(), today.month(), 1)?;
+                return Some(Utc.from_utc_datetime(&som.and_hms_opt(0, 0, 0)?));
+            }
+            "soq" | "boq" => { // Start/beginning of quarter
+                let quarter = (today.month() - 1) / 3;
+                let first_month_of_quarter = quarter * 3 + 1;
+                let soq = NaiveDate::from_ymd_opt(today.year(), first_month_of_quarter, 1)?;
+                return Some(Utc.from_utc_datetime(&soq.and_hms_opt(0, 0, 0)?));
+            }
+            "soy" | "boy" => { // Start/beginning of year
+                let soy = NaiveDate::from_ymd_opt(today.year(), 1, 1)?;
+                return Some(Utc.from_utc_datetime(&soy.and_hms_opt(0, 0, 0)?));
+            }
+            
+            _ => {
+                // Try relative offsets like "1d", "2w", "3mo", "1y"
+                if let Some(duration) = Self::parse_duration(&input) {
+                    let future = today + duration;
+                    return Some(Utc.from_utc_datetime(&future.and_hms_opt(0, 0, 0)?));
+                }
+                
+                // Try standard date formats
+                if let Ok(parsed_date) = NaiveDate::parse_from_str(&input, "%Y-%m-%d") {
+                    return Some(Utc.from_utc_datetime(&parsed_date.and_hms_opt(0, 0, 0)?));
+                }
+                if let Ok(parsed_date) = NaiveDate::parse_from_str(&input, "%m/%d/%Y") {
+                    return Some(Utc.from_utc_datetime(&parsed_date.and_hms_opt(0, 0, 0)?));
+                }
+                if let Ok(parsed_date) = NaiveDate::parse_from_str(&input, "%d-%m-%Y") {
+                    return Some(Utc.from_utc_datetime(&parsed_date.and_hms_opt(0, 0, 0)?));
+                }
+                
+                None
+            }
+        }
+    }
+    
+    /// Parse duration strings like "1d", "2w", "3mo", "1y"
+    fn parse_duration(input: &str) -> Option<Duration> {
+        let input = input.trim();
+        
+        // Match patterns like "1d", "2w", "3mo", "1y"
+        if input.len() < 2 {
+            return None;
+        }
+        
+        let (num_str, unit) = if input.ends_with("mo") {
+            (&input[..input.len()-2], "mo")
+        } else {
+            (&input[..input.len()-1], &input[input.len()-1..])
+        };
+        
+        let num: i64 = num_str.parse().ok()?;
+        
+        match unit {
+            "d" => Some(Duration::days(num)),
+            "w" => Some(Duration::weeks(num)),
+            "mo" => Some(Duration::days(num * 30)), // Approximate
+            "y" => Some(Duration::days(num * 365)), // Approximate
+            _ => None,
+        }
     }
 
     pub fn render(&self, f: &mut Frame, area: Rect) {
@@ -455,14 +576,8 @@ impl TaskForm {
             matches!(self.active_field, FormField::Priority),
         );
 
-        // Due field
-        self.render_field(
-            f,
-            chunks[3],
-            "Due:",
-            &self.due_input,
-            matches!(self.active_field, FormField::Due),
-        );
+        // Due field with hint
+        self.render_due_field(f, chunks[3]);
 
         // Tags field
         self.render_field(
@@ -496,6 +611,57 @@ impl TaskForm {
         .style(Style::default().bg(Color::Black))
         .alignment(Alignment::Center);
         f.render_widget(instructions, chunks[5]);
+    }
+
+    fn render_due_field(&self, f: &mut Frame, area: Rect) {
+        let is_active = matches!(self.active_field, FormField::Due);
+        let label = "Due:";
+        
+        let (style, border_color) = if is_active && self.is_editing {
+            (
+                Style::default().bg(Color::Black).fg(Color::Green).add_modifier(Modifier::BOLD),
+                Color::Green
+            )
+        } else if is_active {
+            (
+                Style::default().bg(Color::Black).fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Color::Yellow
+            )
+        } else {
+            (Style::default().bg(Color::Black).fg(Color::White), Color::Gray)
+        };
+
+        // Build content with hint when active
+        let mut content_lines = vec![
+            format!("{} {}", label, self.due_input)
+        ];
+        
+        if is_active && self.is_editing {
+            content_lines.push(String::new()); // Empty line
+            content_lines.push("  Examples: today, tomorrow, eow, eom, 1d, 2w, 3mo, YYYY-MM-DD".to_string());
+        }
+        
+        let content = content_lines.join("\n");
+        let paragraph = Paragraph::new(content)
+            .style(style)
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(border_color)))
+            .wrap(ratatui::widgets::Wrap { trim: true });
+
+        f.render_widget(paragraph, area);
+
+        if is_active && self.is_editing {
+            let cursor_pos = self.get_cursor_position_for_field();
+            let cursor_area = Rect {
+                x: area.x + label.len() as u16 + 1 + cursor_pos as u16 + 1, // Position cursor at cursor_pos
+                y: area.y + 1, // +1 for border
+                width: 1,
+                height: 1,
+            };
+            f.render_widget(
+                Paragraph::new("█").style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                cursor_area,
+            );
+        }
     }
 
     fn render_field(&self, f: &mut Frame, area: Rect, label: &str, value: &str, is_active: bool) {
