@@ -110,7 +110,7 @@ impl TaskForm {
                     }
                 }
             }
-            Action::MoveDown => {
+            Action::MoveDown | Action::Tab => {
                 self.next_field();
                 self.is_editing = true; // Auto-enter editing mode
             }
