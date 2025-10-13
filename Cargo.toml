@@ -2,6 +2,7 @@
 name = "lazytask"
 version = "0.1.0"
 edition = "2021"
+default-run = "lazytask"
 authors = ["LazyTask Contributors"]
 description = "Modern Terminal User Interface for Taskwarrior"
 license = "MIT"
