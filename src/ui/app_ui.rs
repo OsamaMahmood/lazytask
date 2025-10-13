@@ -55,6 +55,11 @@ pub struct AppUI {
     selected_statuses: Vec<crate::data::models::TaskStatus>,
     selected_projects: Vec<String>,
     selected_tags: Vec<String>,
+    // Track the task UUID to preserve selection after operations
+    preserve_selection_uuid: Option<String>,
+    // Track computed filter states
+    filter_active: bool,
+    filter_overdue: bool,
 }
 
 impl AppUI {
@@ -81,6 +86,9 @@ impl AppUI {
             selected_statuses: vec![crate::data::models::TaskStatus::Pending],
             selected_projects: Vec::new(),
             selected_tags: Vec::new(),
+            preserve_selection_uuid: None,
+            filter_active: false,
+            filter_overdue: false,
         })
     }
 
@@ -129,13 +137,35 @@ impl AppUI {
             .filter(|task| self.matches_filters(task))
             .cloned()
             .collect();
-        self.task_list_widget.set_tasks(self.filtered_tasks.clone());
+        
+        // Use preserved selection if available
+        let preserve_uuid = self.preserve_selection_uuid.as_deref();
+        self.task_list_widget.set_tasks_with_preserved_selection(self.filtered_tasks.clone(), preserve_uuid);
+        
+        // Clear the preserve UUID after using it
+        self.preserve_selection_uuid = None;
     }
 
     fn matches_filters(&self, task: &Task) -> bool {
-        // Status filter
-        if !self.selected_statuses.is_empty() {
-            if !self.selected_statuses.contains(&task.status) {
+        // Status filter (including computed states)
+        if !self.selected_statuses.is_empty() || self.filter_active || self.filter_overdue {
+            let mut status_matches = false;
+            
+            // Check basic status matches
+            if !self.selected_statuses.is_empty() {
+                status_matches = self.selected_statuses.contains(&task.status);
+            }
+            
+            // Check computed state filters
+            if self.filter_active && task.is_active() {
+                status_matches = true;
+            }
+            
+            if self.filter_overdue && task.is_overdue() {
+                status_matches = true;
+            }
+            
+            if !status_matches {
                 return false;
             }
         }
@@ -190,12 +220,14 @@ impl AppUI {
         // Add description (this was missing!)
         attributes.push(("description".to_string(), task.description.clone()));
 
-        // Add project if present
+        // Add project if present, otherwise clear it
         if let Some(ref project) = task.project {
             attributes.push(("project".to_string(), project.clone()));
+        } else {
+            attributes.push(("project".to_string(), "".to_string()));
         }
 
-        // Add priority if present
+        // Add priority if present, otherwise clear it
         if let Some(ref priority) = task.priority {
             let priority_str = match priority {
                 crate::data::models::Priority::High => "H",
@@ -203,17 +235,25 @@ impl AppUI {
                 crate::data::models::Priority::Low => "L",
             };
             attributes.push(("priority".to_string(), priority_str.to_string()));
+        } else {
+            attributes.push(("priority".to_string(), "".to_string()));
         }
 
-        // Add tags if present (taskwarrior format: +tag1 +tag2)
+        // Handle tags: First clear all tags, then add new ones
+        // Clear all existing tags
+        attributes.push(("tags".to_string(), "".to_string()));
+        
+        // Add new tags (taskwarrior format: +tag1 +tag2)
         for tag in &task.tags {
             attributes.push((format!("+{}", tag), "".to_string()));
         }
 
-        // Add due date if present
+        // Add due date if present, otherwise clear it
         if let Some(due) = task.due {
             let due_str = due.format("%Y-%m-%d").to_string();
             attributes.push(("due".to_string(), due_str));
+        } else {
+            attributes.push(("due".to_string(), "".to_string()));
         }
 
         attributes
@@ -223,34 +263,63 @@ impl AppUI {
     pub fn draw(&mut self, f: &mut Frame) {
         let size = f.size();
         
-        // Create modern dashboard layout with split panes
+        // Create responsive dashboard layout that adapts to window size
+        let terminal_height = size.height;
+        
+        // Responsive header/footer sizing based on terminal height
+        let (header_size, footer_size) = if terminal_height < 20 {
+            (2, 2) // Very small terminals
+        } else if terminal_height < 30 {
+            (3, 2) // Small terminals  
+        } else {
+            (3, 3) // Normal/large terminals
+        };
+
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),      // Header with borders
-                Constraint::Min(10),        // Content area (task list + filters)
-                Constraint::Length(3),      // Footer panel with boundaries
+                Constraint::Length(header_size),    // Responsive header
+                Constraint::Min(10),                // Content area (always minimum 10 lines)
+                Constraint::Length(footer_size),    // Responsive footer
             ])
             .split(size);
 
         // Draw header
         self.draw_header(f, main_chunks[0]);
 
-        // Create 3-pane layout: task list + task detail (top), filters (bottom)
+        // Responsive content layout based on available space
+        let available_height = main_chunks[1].height;
+        let filter_height = if available_height < 20 {
+            6  // Minimal filter area for small screens
+        } else if available_height < 30 {
+            7  // Reduced filter area for medium screens
+        } else {
+            8  // Full filter area for large screens
+        };
+
         let main_content_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(12),        // Top area (task list + task detail)
-                Constraint::Length(8),      // Filters pane (bottom)
+                Constraint::Min(10),                    // Top area (minimum 10 lines for task list)
+                Constraint::Length(filter_height),     // Responsive filters pane
             ])
             .split(main_chunks[1]);
 
-        // Split top area into task list (left) and task detail (right)
+        // Responsive horizontal split based on terminal width
+        let terminal_width = size.width;
+        let (left_pct, right_pct) = if terminal_width < 100 {
+            (50, 50)  // Equal split for narrow terminals
+        } else if terminal_width < 150 {
+            (45, 55)  // Slightly favor detail panel for medium terminals  
+        } else {
+            (40, 60)  // More space for detail panel on wide terminals
+        };
+
         let top_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(45), // Task list (left side)
-                Constraint::Percentage(55), // Task detail (right side)
+                Constraint::Percentage(left_pct),   // Responsive task list
+                Constraint::Percentage(right_pct),  // Responsive task detail
             ])
             .split(main_content_chunks[0]);
 
@@ -288,19 +357,28 @@ impl AppUI {
                 match result {
                     TaskFormResult::Save(task) => {
                         if let Some(task_id) = task.id {
-                            // Update existing task
+                            // Update existing task - preserve selection on the same task
+                            self.preserve_selection_uuid = Some(task.uuid.clone());
+                            
                             let attributes = Self::task_to_attributes(&task);
                             let attributes_refs: Vec<(&str, &str)> = attributes.iter()
                                 .map(|(k, v)| (k.as_str(), v.as_str()))
                                 .collect();
+                            
                             taskwarrior.modify_task(task_id, &attributes_refs).await?;
                         } else {
-                            // Add new task
+                            // Add new task - we'll need to find the newly created task by description
+                            // For now, preserve current selection or go to newest (first in list)
+                            self.preserve_selection_uuid = self.task_list_widget.selected_task_uuid();
+                            
                             let attributes = Self::task_to_attributes(&task);
                             let attributes_refs: Vec<(&str, &str)> = attributes.iter()
                                 .map(|(k, v)| (k.as_str(), v.as_str()))
                                 .collect();
-                            taskwarrior.add_task(&task.description, &attributes_refs).await?;
+                            let _new_task_id = taskwarrior.add_task(&task.description, &attributes_refs).await?;
+                            
+                            // For new tasks, we'll select the first task (newest) since tasks are sorted by entry date
+                            self.preserve_selection_uuid = None; // Let it go to newest task
                         }
                         self.task_form = None;
                         self.load_tasks(taskwarrior).await?;
@@ -503,28 +581,60 @@ impl AppUI {
     }
 
     fn draw_filters_panel(&mut self, f: &mut Frame, area: Rect) {
-        // Uniform layout: All panels get equal 25% width for perfect balance
-        let filter_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(25), // Status filters
-                Constraint::Percentage(25), // Project filters 
-                Constraint::Percentage(25), // Tag filters
-                Constraint::Percentage(25), // Search filters
-            ])
-            .split(area);
+        let terminal_width = area.width;
+        
+        // Responsive filter layout based on terminal width
+        let filter_chunks = if terminal_width < 120 {
+            // Stack filters vertically on narrow screens
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(35), // Status + Project (combined)
+                    Constraint::Percentage(35), // Tags + Search (combined)
+                    Constraint::Percentage(30), // Additional space
+                ])
+                .split(area)
+        } else {
+            // Horizontal layout for wider screens with responsive widths
+            let widths = if terminal_width < 160 {
+                [20, 30, 25, 25] // Compact layout
+            } else {
+                [25, 25, 25, 25] // Full layout
+            };
+            
+            Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(widths[0]), // Status filters
+                    Constraint::Percentage(widths[1]), // Project filters 
+                    Constraint::Percentage(widths[2]), // Tag filters
+                    Constraint::Percentage(widths[3]), // Search filters
+                ])
+                .split(area)
+        };
 
-        // Status filters section
-        self.draw_status_filters(f, filter_chunks[0]);
-        
-        // Project filters section  
-        self.draw_project_filters(f, filter_chunks[1]);
-        
-        // Tag filters section
-        self.draw_tag_filters(f, filter_chunks[2]);
-        
-        // Generic search section
-        self.draw_search_filter(f, filter_chunks[3]);
+        if terminal_width < 120 {
+            // Narrow screen: combine filters in vertical layout
+            let top_row = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(filter_chunks[0]);
+            let bottom_row = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(filter_chunks[1]);
+                
+            self.draw_status_filters(f, top_row[0]);
+            self.draw_project_filters(f, top_row[1]);
+            self.draw_tag_filters(f, bottom_row[0]);
+            self.draw_search_filter(f, bottom_row[1]);
+        } else {
+            // Wide screen: horizontal layout
+            self.draw_status_filters(f, filter_chunks[0]);
+            self.draw_project_filters(f, filter_chunks[1]);
+            self.draw_tag_filters(f, filter_chunks[2]);
+            self.draw_search_filter(f, filter_chunks[3]);
+        }
     }
     
     fn draw_status_filters(&self, f: &mut Frame, area: Rect) {
@@ -541,8 +651,8 @@ impl AppUI {
             .map(|(i, (name, _status))| {
                 let is_selected = match i {
                     0 => self.selected_statuses.contains(&crate::data::models::TaskStatus::Pending),
-                    1 => false, // Active - implement later
-                    2 => false, // Overdue - implement later  
+                    1 => self.filter_active,   // Active computed filter
+                    2 => self.filter_overdue,  // Overdue computed filter  
                     3 => self.selected_statuses.contains(&crate::data::models::TaskStatus::Completed),
                     _ => false,
                 };
@@ -1033,18 +1143,34 @@ impl AppUI {
     fn toggle_current_selection(&mut self) {
         match self.active_filter_section {
             FilterSection::Status => {
-                let status = match self.status_selection_index {
-                    0 => crate::data::models::TaskStatus::Pending,
-                    1 => crate::data::models::TaskStatus::Pending, // Representing Active
-                    2 => crate::data::models::TaskStatus::Pending, // Representing Overdue  
-                    3 => crate::data::models::TaskStatus::Completed,
-                    _ => crate::data::models::TaskStatus::Pending,
-                };
-                
-                if self.selected_statuses.contains(&status) {
-                    self.selected_statuses.retain(|s| s != &status);
-                } else {
-                    self.selected_statuses.push(status);
+                match self.status_selection_index {
+                    0 => {
+                        // Pending status
+                        let status = crate::data::models::TaskStatus::Pending;
+                        if self.selected_statuses.contains(&status) {
+                            self.selected_statuses.retain(|s| s != &status);
+                        } else {
+                            self.selected_statuses.push(status);
+                        }
+                    }
+                    1 => {
+                        // Active (computed filter)
+                        self.filter_active = !self.filter_active;
+                    }
+                    2 => {
+                        // Overdue (computed filter)  
+                        self.filter_overdue = !self.filter_overdue;
+                    }
+                    3 => {
+                        // Completed status
+                        let status = crate::data::models::TaskStatus::Completed;
+                        if self.selected_statuses.contains(&status) {
+                            self.selected_statuses.retain(|s| s != &status);
+                        } else {
+                            self.selected_statuses.push(status);
+                        }
+                    }
+                    _ => {}
                 }
             }
             FilterSection::Project => {
@@ -1085,16 +1211,67 @@ impl AppUI {
             Action::DoneTask => {
                 if let Some(task) = self.task_list_widget.selected_task() {
                     if let Some(task_id) = task.id {
-                        taskwarrior.done_task(task_id).await?;
-                        self.load_tasks(taskwarrior).await?;
+                        // Find the next task to select after completing this one
+                        let current_index = self.task_list_widget.state.selected().unwrap_or(0);
+                        let next_task_uuid = if current_index + 1 < self.filtered_tasks.len() {
+                            // Select next task
+                            Some(self.filtered_tasks[current_index + 1].uuid.clone())
+                        } else if current_index > 0 {
+                            // Select previous task if we're at the end
+                            Some(self.filtered_tasks[current_index - 1].uuid.clone())
+                        } else {
+                            None // No other tasks available
+                        };
+                        
+                        self.preserve_selection_uuid = next_task_uuid;
+                        
+                        // Attempt to complete the task with better error handling
+                        match taskwarrior.done_task(task_id).await {
+                            Ok(_) => {
+                                // Successfully completed, reload tasks
+                                self.load_tasks(taskwarrior).await?;
+                            }
+                            Err(e) => {
+                                // If completion fails, don't crash - just show the error and continue
+                                eprintln!("Failed to complete task {}: {}", task_id, e);
+                                // Clear the preserve UUID since operation failed
+                                self.preserve_selection_uuid = None;
+                            }
+                        }
                     }
                 }
             }
             Action::DeleteTask => {
                 if let Some(task) = self.task_list_widget.selected_task() {
                     if let Some(task_id) = task.id {
-                        taskwarrior.delete_task(task_id).await?;
-                        self.load_tasks(taskwarrior).await?;
+                        // Find the next task to select after deleting this one
+                        let current_index = self.task_list_widget.state.selected().unwrap_or(0);
+                        let next_task_uuid = if current_index + 1 < self.filtered_tasks.len() {
+                            // Select next task
+                            Some(self.filtered_tasks[current_index + 1].uuid.clone())
+                        } else if current_index > 0 {
+                            // Select previous task if we're at the end
+                            Some(self.filtered_tasks[current_index - 1].uuid.clone())
+                        } else {
+                            None // No other tasks available
+                        };
+                        
+                        self.preserve_selection_uuid = next_task_uuid;
+                        
+                        // Attempt to delete the task with better error handling
+                        match taskwarrior.delete_task(task_id).await {
+                            Ok(_) => {
+                                // Successfully deleted, reload tasks
+                                self.load_tasks(taskwarrior).await?;
+                            }
+                            Err(e) => {
+                                // If delete fails, don't crash - just show the error and continue
+                                eprintln!("Failed to delete task {}: {}", task_id, e);
+                                // Clear the preserve UUID since operation failed
+                                self.preserve_selection_uuid = None;
+                                // Don't propagate the error to avoid crashing the application
+                            }
+                        }
                     }
                 }
             }
