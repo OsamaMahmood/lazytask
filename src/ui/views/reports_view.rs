@@ -156,29 +156,19 @@ impl ReportsView {
 
     pub fn render(&self, f: &mut Frame, area: Rect) {
         // Responsive reports layout based on terminal size
+        // Always show all components, maximize space utilization
         let terminal_width = area.width;
         let terminal_height = area.height;
         
-        if terminal_height < 25 {
-            // Very small screen - single column layout
+        if terminal_width < 100 {
+            // Narrow screen - vertical stacking (all components)
+            // Ensure all sections are always visible with flexible sizing
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Percentage(60), // Summary only
-                    Constraint::Percentage(40), // Activity only
-                ])
-                .split(area);
-            
-            self.render_enhanced_summary_panel(f, chunks[0]);
-            self.render_recent_activity_panel(f, chunks[1]);
-        } else if terminal_width < 120 {
-            // Narrow screen - vertical stacking
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Percentage(30), // Summary
-                    Constraint::Percentage(45), // Project table
-                    Constraint::Percentage(25), // Activity
+                    Constraint::Percentage(25),   // Summary - 25%
+                    Constraint::Percentage(40),   // Project table - 40%
+                    Constraint::Percentage(35),   // Activity - 35%
                 ])
                 .split(area);
             
@@ -186,35 +176,39 @@ impl ReportsView {
             self.render_enhanced_project_table(f, chunks[1]);
             self.render_recent_activity_panel(f, chunks[2]);
         } else {
-            // Wide screen - full layout with responsive proportions
-            let (top_pct, middle_pct, bottom_pct) = if terminal_height < 35 {
-                (35, 40, 25)  // Compact layout
-            } else {
-                (40, 35, 25)  // Standard layout
-            };
-            
+            // Wide screen - full layout with Summary + Burndown side by side
+            // Maximize space usage - fill entire window
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Percentage(top_pct),    // Top row - Summary and Burndown
-                    Constraint::Percentage(middle_pct), // Middle row - By Project table
-                    Constraint::Percentage(bottom_pct), // Bottom row - Recent Activity
+                    Constraint::Percentage(50),  // Top row - 50% of height (Summary + Burndown)
+                    Constraint::Percentage(50),  // Bottom row - 50% of height (By Project + Recent Activity)
                 ])
                 .split(area);
 
+            // Top row: Summary (left) + Burndown (right)
             let top_chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([
-                    Constraint::Percentage(35), // Summary
-                    Constraint::Percentage(65), // Burndown chart
+                    Constraint::Percentage(50), // Summary
+                    Constraint::Percentage(50), // Burndown chart
                 ])
                 .split(chunks[0]);
+
+            // Bottom row: By Project (left) + Recent Activity (right)
+            let bottom_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(50), // By Project
+                    Constraint::Percentage(50), // Recent Activity
+                ])
+                .split(chunks[1]);
 
             // Render all enhanced report panels
             self.render_enhanced_summary_panel(f, top_chunks[0]);
             self.render_burndown_panel(f, top_chunks[1]);
-            self.render_enhanced_project_table(f, chunks[1]);
-            self.render_recent_activity_panel(f, chunks[2]);
+            self.render_enhanced_project_table(f, bottom_chunks[0]);
+            self.render_recent_activity_panel(f, bottom_chunks[1]);
         }
     }
 
@@ -358,7 +352,11 @@ impl ReportsView {
             let mut projects: Vec<_> = self.project_stats.iter().collect();
             projects.sort_by(|a, b| (b.1.pending + b.1.completed).cmp(&(a.1.pending + a.1.completed)));
 
-            for (project_name, stats) in projects.into_iter().take(8) {
+            // Dynamically calculate max projects based on available height
+            // Subtract 3 for borders (2) and header (1), minimum 8 projects
+            let max_projects = (area.height.saturating_sub(3) as usize).max(8);
+
+            for (project_name, stats) in projects.into_iter().take(max_projects) {
                 let completion_rate = stats.completion_rate();
                 
                 // Calculate average urgency for this project
@@ -516,9 +514,13 @@ impl ReportsView {
             }
         }
         
-        // Sort by time (most recent first) and take top 6
+        // Sort by time (most recent first)
         recent_activities.sort_by(|a, b| b.0.cmp(&a.0));
-        recent_activities.truncate(6);
+        
+        // Dynamically calculate max items based on available height
+        // Subtract 2 for borders, then show as many as fit
+        let max_items = (area.height.saturating_sub(2) as usize).max(6);
+        recent_activities.truncate(max_items);
         
         let mut activity_text = vec![];
         

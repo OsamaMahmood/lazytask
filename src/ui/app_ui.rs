@@ -306,45 +306,45 @@ impl AppUI {
         // Draw header
         self.draw_header(f, main_chunks[0]);
 
-        // Responsive content layout based on available space
-        let available_height = main_chunks[1].height;
-        let filter_height = if available_height < 20 {
-            9   // Compact filter area for small screens - proper scrolling handles overflow
-        } else if available_height < 30 {
-            12  // Medium filter area for medium screens - proper scrolling handles overflow
-        } else {
-            15  // Larger filter area for large screens - proper scrolling handles overflow
-        };
-
-        let main_content_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Min(10),                    // Top area (minimum 10 lines for task list)
-                Constraint::Length(filter_height),     // Responsive filters pane
-            ])
-            .split(main_chunks[1]);
-
-        // Responsive horizontal split based on terminal width
-        let terminal_width = size.width;
-        let (left_pct, right_pct) = if terminal_width < 100 {
-            (50, 50)  // Equal split for narrow terminals
-        } else if terminal_width < 150 {
-            (50, 50)  // Slightly favor detail panel for medium terminals  
-        } else {
-            (50, 50)  // More space for detail panel on wide terminals
-        };
-
-        let top_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(left_pct),   // Responsive task list
-                Constraint::Percentage(right_pct),  // Responsive task detail
-            ])
-            .split(main_content_chunks[0]);
-
         // Draw main content based on current view
-                match self.current_view {
+        match self.current_view {
             AppView::TaskList => {
+                // Only split for filters when in TaskList view
+                let available_height = main_chunks[1].height;
+                let filter_height = if available_height < 20 {
+                    9   // Compact filter area for small screens
+                } else if available_height < 30 {
+                    12  // Medium filter area for medium screens
+                } else {
+                    15  // Larger filter area for large screens
+                };
+
+                let main_content_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Min(10),                    // Top area (minimum 10 lines for task list)
+                        Constraint::Length(filter_height),     // Responsive filters pane
+                    ])
+                    .split(main_chunks[1]);
+
+                // Responsive horizontal split based on terminal width
+                let terminal_width = size.width;
+                let (left_pct, right_pct) = if terminal_width < 100 {
+                    (50, 50)  // Equal split for narrow terminals
+                } else if terminal_width < 150 {
+                    (50, 50)  // Slightly favor detail panel for medium terminals  
+                } else {
+                    (50, 50)  // More space for detail panel on wide terminals
+                };
+
+                let top_chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([
+                        Constraint::Percentage(left_pct),   // Responsive task list
+                        Constraint::Percentage(right_pct),  // Responsive task detail
+                    ])
+                    .split(main_content_chunks[0]);
+
                 // Draw task list on the left
                 self.draw_task_list(f, top_chunks[0]);
                 // Draw task detail on the right
@@ -352,10 +352,10 @@ impl AppUI {
                 // Draw filters at the bottom spanning full width
                 self.draw_filters_panel(f, main_content_chunks[1]);
             }
-            AppView::TaskDetail => self.draw_task_detail(f, main_content_chunks[0]),
-            AppView::Reports => self.draw_reports(f, main_content_chunks[0]),
-            AppView::Settings => self.draw_settings(f, main_content_chunks[0]),
-            AppView::Help => self.draw_help(f, main_content_chunks[0]),
+            AppView::TaskDetail => self.draw_task_detail(f, main_chunks[1]),
+            AppView::Reports => self.draw_reports(f, main_chunks[1]),
+            AppView::Settings => self.draw_settings(f, main_chunks[1]),
+            AppView::Help => self.draw_help(f, main_chunks[1]),
         }
 
         // Draw footer with panel boundaries
