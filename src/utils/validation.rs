@@ -59,3 +59,4 @@ pub fn parse_date(date_str: &str) -> Result<DateTime<Utc>> {
     
     Err(anyhow!("Invalid date format. Use YYYY-MM-DD or RFC3339 format"))
 }
+

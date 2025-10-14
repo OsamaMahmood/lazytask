@@ -30,3 +30,4 @@ impl SyncHandler {
         Ok("Sync disabled".to_string())
     }
 }
+

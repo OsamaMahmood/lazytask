@@ -520,3 +520,4 @@ LazyTask follows semantic versioning:
 - [GitHub Issues](https://github.com/osamamahmood/lazytask/issues)
 - [Discussions](https://github.com/osamamahmood/lazytask/discussions)
 - [Contributing Guide](../CONTRIBUTING.md)
+

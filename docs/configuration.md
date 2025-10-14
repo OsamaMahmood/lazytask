@@ -333,3 +333,4 @@ When upgrading LazyTask, configuration files are automatically migrated:
 4. **Use Comments**: Document custom settings with comments
 5. **Version Control**: Consider versioning your config files
 6. **Share Configs**: Share useful configurations with the community
+

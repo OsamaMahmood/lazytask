@@ -34,3 +34,4 @@ pub fn truncate_text(text: &str, max_length: usize) -> String {
         format!("{}...", &text[..max_length.saturating_sub(3)])
     }
 }
+

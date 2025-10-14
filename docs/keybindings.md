@@ -181,3 +181,4 @@ quit = "Ctrl+q"          # Change from 'q' to 'Ctrl+q'
 3. **Quick Actions**: Most common actions have single-key shortcuts
 4. **Consistent Patterns**: Similar actions use similar keys across views
 5. **Escape to Safety**: `Esc` always takes you back or cancels the current action
+

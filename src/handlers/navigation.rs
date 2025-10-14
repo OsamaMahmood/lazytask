@@ -38,3 +38,4 @@ impl NavigationHandler {
         &self.current_view
     }
 }
+

@@ -51,3 +51,4 @@ impl Theme {
         Style::default().fg(self.get_color("error"))
     }
 }
+

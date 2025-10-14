@@ -84,3 +84,4 @@ pub fn calculate_urgency(task: &crate::data::models::Task) -> f64 {
     
     urgency
 }
+

@@ -136,3 +136,4 @@ impl Config {
         Ok(config_dir.join("lazytask").join("config.toml"))
     }
 }
+

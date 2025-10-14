@@ -26,3 +26,4 @@ impl TaskChampionDB {
         todo!("Direct database access not yet implemented")
     }
 }
+
