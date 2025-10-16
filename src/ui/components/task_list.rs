@@ -116,17 +116,16 @@ impl TaskListWidget {
         let task_count = self.tasks.len();
         let title = format!(" Tasks ({}) ", task_count);
         
-        let table = Table::new(rows)
+        let table = Table::new(rows, &column_widths)
             .header(header)
             .block(Block::default()
                 .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
             )
-            .widths(&column_widths)
             .column_spacing(2)  // Clean spacing between columns
             .style(Style::default().fg(Color::White))
-            .highlight_style(
+            .row_highlight_style(
                 Style::default()
                     .bg(Color::DarkGray)
                     .fg(Color::White)

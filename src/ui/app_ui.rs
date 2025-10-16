@@ -134,7 +134,7 @@ impl AppUI {
 
 
     pub fn draw(&mut self, f: &mut Frame) {
-        let size = f.size();
+        let size = f.area();
         
         // Create responsive dashboard layout that adapts to window size
         let terminal_height = size.height;

@@ -300,13 +300,7 @@ impl DashboardWidget {
             }
         }
 
-        let table = Table::new(rows)
-            .header(header)
-            .block(Block::default()
-                .title("By Project")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)))
-            .widths(&[
+        let table = Table::new(rows, &[
                 Constraint::Length(14),
                 Constraint::Length(9),
                 Constraint::Length(11),
@@ -314,6 +308,11 @@ impl DashboardWidget {
                 Constraint::Length(13),
                 Constraint::Length(12),
             ])
+            .header(header)
+            .block(Block::default()
+                .title("By Project")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)))
             .column_spacing(1);
         
         f.render_widget(table, area);

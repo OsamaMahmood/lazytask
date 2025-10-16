@@ -1,6 +1,4 @@
 // Primary task list view with detail panel and filters
-
-use anyhow::Result;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},

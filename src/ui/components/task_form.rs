@@ -1,12 +1,12 @@
 // Task form dialog for adding/editing tasks
 
 use anyhow::Result;
-use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
+use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
     Frame,
 };
 
@@ -513,7 +513,7 @@ impl TaskForm {
         f.render_widget(block, popup_area);
 
         // Split into form fields
-        let inner_area = popup_area.inner(&Margin {
+        let inner_area = popup_area.inner(Margin {
             vertical: 1,
             horizontal: 2,
         });
