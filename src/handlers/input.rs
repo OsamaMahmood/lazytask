@@ -88,6 +88,10 @@ impl InputHandler {
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
                 KeyCode::Char('c') => Action::Context,
                 KeyCode::Char('r') => Action::Reports,
+                KeyCode::Tab => Action::Tab,
+                KeyCode::Backspace => Action::Backspace,
+                KeyCode::Char(' ') => Action::Space,
+                KeyCode::Char(c) => Action::Character(c), // Catch-all for other characters (t, <, >, etc)
                 _ => Action::None,
             }
         }
