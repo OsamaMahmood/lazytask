@@ -15,12 +15,12 @@ LazyTask is now a complete, modern Terminal User Interface for Taskwarrior with 
 - **Advanced Task Forms**: Modal dialogs with project, priority, due date, tags, and description fields
 - **Smart Selection**: UUID-based task selection that persists across operations
 - **Tag Management**: Full tag editing with proper add/remove functionality
-- **Task Details**: Comprehensive task information display with formatting
+- **Task Details**: Comprehensive task information display in dedicated detail panel
 
 ### ✅ **Modern User Interface**
 
 - **Responsive Design**: Automatic layout adaptation for different terminal sizes
-- **Split-Panel View**: Task list + detail panel (similar to Lazygit)
+- **Task List with Integrated Filters**: Main view with task list and inline filter panel
 - **Professional Theming**: Catppuccin color scheme with priority-based color coding
 - **Auto-Resize**: Seamless UI updates when terminal window is resized
 - **Modal System**: Clean, professional forms and dialogs
@@ -35,12 +35,19 @@ LazyTask is now a complete, modern Terminal User Interface for Taskwarrior with 
 
 ### ✅ **Professional Reports Dashboard**
 
-- **Modern 3-Panel Layout**: Summary + Burndown, Project Analytics, Recent Activity
+- **Dual Mode Interface**: Toggle between Dashboard and Calendar views
+- **Dashboard Mode**:
+  - Modern 4-panel layout: Summary, Burndown, Project Analytics, Recent Activity
+  - Real-time statistics: task counts, completion rates, priority breakdown
+  - Project analytics: detailed per-project stats with progress tracking
+  - Activity timeline: recent task changes with detailed activity types
+- **Calendar Mode**:
+  - 3-month horizontal calendar view (previous, current, next month)
+  - Task indicators on dates: ⚠ overdue, • pending, ✓ completed, ○ other
+  - Daily task details with status breakdown including deleted tasks
+  - Full keyboard navigation: arrows for days/weeks, <>for months, 't' for today
 - **Performance Optimized**: Smart caching system eliminates flickering
-- **Real-Time Statistics**: Task counts, completion rates, priority breakdown
-- **Project Analytics**: Detailed per-project statistics with progress tracking
-- **Activity Timeline**: Recent task changes with detailed activity types
-- **Responsive Charts**: Adaptive burndown charts and data visualization
+- **Responsive Layout**: Adaptive charts and panels based on terminal size
 
 ### ✅ **Complete Taskwarrior Integration**
 
@@ -95,11 +102,11 @@ cargo run --bin final_demo      # Analytics and overview
 LazyTask offers multiple integrated modes for different workflows:
 
 1. **📋 Task List Mode**: Browse and manage tasks with keyboard navigation
-2. **🔀 Split-Panel Mode**: Task list + detailed view simultaneously (like Lazygit)
-3. **🔍 Filter Mode**: Interactive filtering with real-time preview
-4. **✏️ Form Mode**: Task creation/editing with comprehensive fields
-5. **📊 Reports Mode**: Analytics dashboard with 4 detailed panels
-6. **❓ Help Mode**: Context-sensitive keyboard reference
+2. **🔍 Filter Mode**: Interactive filtering with real-time preview (press `/`)
+3. **✏️ Form Mode**: Task creation/editing with comprehensive fields
+4. **📊 Dashboard Mode**: Analytics dashboard with 4 detailed panels
+5. **📅 Calendar Mode**: 3-month calendar view with task tracking
+6. **❓ Help Mode**: Context-sensitive keyboard reference (F1)
 
 ### Complete Keyboard Interface
 
@@ -108,8 +115,7 @@ LazyTask offers multiple integrated modes for different workflows:
 - `q` - Quit application
 - `F1` - Context-sensitive help
 - `F5` - Refresh tasks from Taskwarrior
-- `↑/↓` - Navigate task list
-- `Tab` - Toggle split/single view
+- `↑/↓` - Navigate task list / filter options
 - `Enter` - Select/confirm action
 - `Esc` - Cancel/go back
 
@@ -120,12 +126,21 @@ LazyTask offers multiple integrated modes for different workflows:
 - `d` - Mark task as done
 - `Delete` - Delete selected task
 
-**Advanced Features (ToDo):**
+**Filtering & Views:**
 
-- `/` - Open interactive filter bar
+- `/` - Toggle interactive filter bar
+- `Tab` - Navigate between filter sections (Status, Project, Tags, Search)
+- `Space` - Toggle filter selections
 - `r` - Open reports dashboard
-- `c` - Switch Taskwarrior context
-- `C` - Clear all filters (in filter mode)
+
+**Reports & Calendar:**
+
+- `c` - Toggle between Dashboard and Calendar modes (in Reports view)
+- **Calendar Navigation:**
+  - `←/→` - Navigate by day
+  - `↑/↓` - Navigate by week
+  - `</>` - Navigate by month (previous/next)
+  - `t` - Jump to today
 
 ### Filter System Usage
 
@@ -142,10 +157,20 @@ The advanced filtering system supports real-time task filtering:
 
 Access comprehensive analytics with `r`:
 
+**Dashboard Mode (default):**
+
 - **📈 Summary Panel**: Task counts, completion rates, priority breakdown
-- **📊 Burndown Chart**: Progress visualization and completion trends
-- **📋 Project Analytics**: Per-project statistics with task counts and next due dates
+- **📊 Burndown Chart**: 30-day completion trend visualization
+- **📋 Project Analytics**: Per-project statistics with task counts, completion rates, urgency, and next due dates
 - **🕒 Recent Activity**: Timeline of recent task changes with detailed activity types
+
+**Calendar Mode (press `c` to toggle):**
+
+- **📅 3-Month View**: See previous, current, and next month simultaneously
+- **Visual Indicators**: Tasks marked on dates with status icons (⚠ overdue, • pending, ✓ completed)
+- **Daily Details**: Click/select a date to see all tasks for that day with full breakdown
+- **Smart Navigation**: Arrows for day/week, <> for months, 't' to jump to today
+- **Statistics**: Total, pending, completed, overdue, and deleted tasks per day
 
 ## Architecture
 
