@@ -59,12 +59,10 @@ src/
 │   │   ├── report_panel.rs  # Statistics and charts
 │   │   └── modal_dialog.rs  # Confirmation dialogs
 │   ├── views/           # Screen layouts
-│   │   ├── main_view.rs     # Primary task list
-│   │   ├── detail_view.rs   # Task detail/edit
-│   │   ├── reports_view.rs  # Reports dashboard
-│   │   ├── calendar_view.rs # Calendar interface
-│   │   ├── projects_view.rs # Project browser
-│   │   └── settings_view.rs # Configuration UI
+│   │   ├── main_view.rs     # Primary task list with filtering
+│   │   ├── reports_view.rs  # Reports dashboard with project stats
+│   │   ├── calendar_view.rs # Calendar interface (stub)
+│   │   └── settings_view.rs # Configuration UI (stub)
 │   └── themes.rs        # Color schemes
 │
 ├── handlers/            # Event and command processing
@@ -520,4 +518,3 @@ LazyTask follows semantic versioning:
 - [GitHub Issues](https://github.com/osamamahmood/lazytask/issues)
 - [Discussions](https://github.com/osamamahmood/lazytask/discussions)
 - [Contributing Guide](../CONTRIBUTING.md)
-
